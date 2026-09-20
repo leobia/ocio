@@ -1,0 +1,151 @@
+# OCIO source registry
+# Il software usa questo file per acquisire/aggiornare fonti note.
+# Discovery automatica di nuovi atti: posticipata.
+version: 2
+
+ingestion_policy:
+  discovery_new_acts: false
+  prefer_formats: [AKN, JSON, XML, HTML, PDF]
+  index_current_law_first: true
+  keep_historical_versions: true
+  reembed_only_if_content_hash_changes: true
+  do_not_duplicate_same_text_across_sources: true
+
+authority_classes:
+  law: "Normativa"
+  official_interpretation: "Interpelli/circolari/chiarimenti istituzionali"
+  technical_guidance: "Conoscenza tecnica non normativa"
+
+providers:
+  normattiva:
+    authority_class: law
+    role: "Source of truth tecnica principale per normativa italiana vigente/multivigente"
+    portal: "https://dati.normattiva.it/"
+    api_docs: "https://dati.normattiva.it/assets/come_fare_per/Normattiva%20OpenData.html"
+    download_docs: "https://dati.normattiva.it/Come-scaricare-i-dati"
+
+  gazzetta:
+    authority_class: law
+    role: "Fonte autentica/originale per verifica e fallback"
+    portal: "https://www.gazzettaufficiale.it/"
+
+  mlps:
+    authority_class: official_interpretation
+    role: "Interpelli e chiarimenti ufficiali"
+    interpelli: "https://www.lavoro.gov.it/documenti-e-norme/interpelli/Pagine/default"
+    interpelli_info: "https://www.lavoro.gov.it/temi-e-priorita/salute-e-sicurezza/focus-on/interpello/pagine/default"
+    accordo_2025: "https://www.lavoro.gov.it/temi-e-priorita/salute-e-sicurezza/focus/pagine/accordo-stato-regioni-del-17042025-materia-di-formazione"
+    accordo_2025_pdf: "https://lavoro.gov.it/sites/default/files/documenti-pubblicita-legale/Accordo%20formazione%20salute%20e%20sicurezza%20sancito%20CSR%2017%20aprile%202025.pdf"
+    faq_accordo_2025: "https://www.lavoro.gov.it/temi-e-priorita-salute-e-sicurezza/focus/faq-accordo-stato-regioni-27032026"
+
+  inl:
+    authority_class: official_interpretation
+    role: "Circolari/note di vigilanza e snapshot coordinato del Testo Unico"
+    safety_page: "https://www.ispettorato.gov.it/documenti-e-normativa/normativa-di-interesse/salute-e-sicurezza-nei-luoghi-di-lavoro/"
+    circulars: "https://www.ispettorato.gov.it/documenti-e-normativa/orientamenti-giuridici-inl/circolari/"
+    notes: "https://www.ispettorato.gov.it/documenti-e-normativa/orientamenti-giuridici-inl/note-e-pareri/"
+    tu_snapshot_2026_pdf: "https://www.ispettorato.gov.it/files/2026/01/TU-81-08-Ed.-Gennaio-2026.pdf"
+
+  vvf:
+    authority_class: official_interpretation
+    role: "Normativa/chiarimenti antincendio"
+    collection: "https://www.vigilfuoco.it/servizi-le-aziende-e-i-professionisti/prevenzione-incendi/norme-di-prevenzione-incendi"
+    coordinated_dm_1_2_3_2021_pdf: "https://www.vigilfuoco.it/sites/default/files/2024-09/COORD_DDMM_01-02-03_09_2021_0.pdf"
+
+  stato_regioni:
+    authority_class: law
+    role: "Fonte dell'Accordo 59/CSR/2025"
+    accordo_59_2025: "https://www.statoregioni.it/it/conferenza-stato-regioni/sedute-2025/seduta-del-17-aprile-2025/atti-17-aprile-2025/repertorio-atto-n-59csr/"
+
+# Corpus normativo V1 noto e controllato.
+seed_documents:
+  - id: dlgs_81_2008
+    title: "D.Lgs. 81/2008 - Testo unico salute e sicurezza sul lavoro"
+    primary_provider: normattiva
+    versions: [current, historical]
+    priority: REQUIRED
+    note: "Usare Normattiva strutturata per ingestion; snapshot PDF INL solo come riferimento/controllo."
+
+  - id: accordo_59_csr_2025
+    title: "Accordo Stato-Regioni 59/CSR del 17/04/2025"
+    primary_provider: mlps
+    priority: REQUIRED
+
+  - id: faq_accordo_59_2025
+    title: "FAQ ufficiali MLPS sull'Accordo 59/2025"
+    primary_provider: mlps
+    priority: REQUIRED
+
+  - id: dm_388_2003
+    title: "D.M. 15 luglio 2003 n. 388 - primo soccorso"
+    primary_provider: gazzetta
+    source: "https://www.gazzettaufficiale.it/eli/id/2004/02/03/004G0046/sg"
+    correction: "https://www.gazzettaufficiale.it/eli/id/2004/05/04/04A04601/sg"
+    priority: REQUIRED
+
+  - id: dpr_462_2001
+    title: "D.P.R. 22 ottobre 2001 n. 462 - impianti di terra/scariche atmosferiche"
+    primary_provider: gazzetta
+    source: "https://www.gazzettaufficiale.it/eli/id/2002/01/08/001G0521/sg"
+    priority: REQUIRED
+
+  - id: dpr_177_2011
+    title: "D.P.R. 14 settembre 2011 n. 177 - ambienti confinati"
+    primary_provider: gazzetta
+    source: "https://www.gazzettaufficiale.it/eli/id/2011/11/08/011G0219/sg"
+    priority: REQUIRED
+
+  - id: dm_11_04_2011
+    title: "D.M. 11 aprile 2011 - verifiche periodiche attrezzature"
+    primary_provider: gazzetta
+    source: "https://www.gazzettaufficiale.it/eli/id/2011/04/29/11A05462/sg"
+    priority: REQUIRED
+
+  - id: dm_1_2_3_settembre_2021
+    title: "D.M. 1, 2 e 3 settembre 2021 - sicurezza antincendio nei luoghi di lavoro"
+    primary_provider: vvf
+    priority: REQUIRED
+
+  - id: dm_13_09_2024
+    title: "D.M. 13 settembre 2024 - modifiche al D.M. 1 settembre 2021"
+    primary_provider: vvf
+    priority: REQUIRED
+
+  - id: di_30_11_2012
+    title: "D.I. 30 novembre 2012 - procedure standardizzate per la valutazione dei rischi"
+    primary_provider: mlps
+    source: "https://www.gazzettaufficiale.it/atto/vediMenuHTML?atto.codiceRedazionale=12A12848&atto.dataPubblicazioneGazzetta=2012-12-06&tipoSerie=serie_generale&tipoVigenza=originario"
+    priority: REQUIRED
+
+  - id: dm_132_2024
+    title: "D.M. 18 settembre 2024 n. 132 - patente a crediti"
+    primary_provider: gazzetta
+    source: "https://www.gazzettaufficiale.it/eli/id/2024/09/20/24G00151/sg"
+    priority: REQUIRED_FOR_CONSTRUCTION
+
+# Queste raccolte vengono sincronizzate, ma non richiedono discovery di fonti nuove.
+dynamic_collections:
+  - id: mlps_interpelli_sicurezza
+    provider: mlps
+    include: "Interpelli ex art. 12 D.Lgs. 81/2008 / salute e sicurezza"
+
+  - id: inl_safety_circulars_notes
+    provider: inl
+    include: "Solo circolari/note pertinenti al D.Lgs. 81 e salute/sicurezza"
+
+  - id: vvf_workplace_fire_clarifications
+    provider: vvf
+    include: "Circolari/chiarimenti collegati ai D.M. 1/2/3 settembre 2021"
+
+  - id: mlps_training_faq
+    provider: mlps
+    include: "FAQ/chiarimenti ufficiali sull'Accordo 59/2025"
+
+# Fuori dal corpus V1: si aggiungono solo quando OCIO coprirà esplicitamente il verticale.
+deferred_verticals:
+  - "REACH/CLP: necessario per domande avanzate su classificazione/SDS/rischio chimico; non ingerire tutto in V1."
+  - "D.Lgs. 101/2020: radiazioni ionizzanti."
+  - "Normativa prodotto/macchine e conformità CE."
+  - "Cave, ferrovie, navi, Seveso e altri settori speciali."
+  - "INAIL: corpus tecnico separato."
+  - "UNI: verificare licenze/accesso prima dell'ingestion."
