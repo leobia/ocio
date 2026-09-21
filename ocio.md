@@ -1,566 +1,362 @@
-\# AI Safety Agent
+# OCIO — assistente AI per la sicurezza sul lavoro
 
+## Visione
 
+OCIO vuole diventare un agente AI per la sicurezza sul lavoro capace di usare più strumenti:
 
-\## Obiettivo
+- ricerca affidabile nella normativa e nelle fonti ufficiali;
+- analisi di immagini;
+- analisi di dati e documenti aziendali;
+- supporto alla composizione del DVR e di altri documenti.
 
+Questa è la direzione di lungo periodo, non il perimetro della prima alpha. Il primo sottosistema è un knowledge tool normativo verificabile, che in futuro sarà esposto all'agente come `knowledge_search()`.
 
+## Alpha
 
-Costruire un agente AI generalista per la \*\*sicurezza sul lavoro\*\*.
+### Utenti
 
+L'alpha è uno strumento interno per RSPP e consulenti. Sarà provata da chi sviluppa OCIO e da un RSPP, usando esclusivamente casi fittizi.
 
+### Problema
 
-Il primo sottosistema è un motore di knowledge retrieval affidabile sulla normativa e documentazione ufficiale. In futuro il RAG sarà un tool dell'agente insieme, ad esempio, ad analisi immagini e generazione/compilazione documenti.
+Ridurre il tempo necessario a trovare e verificare obblighi, articoli e chiarimenti ufficiali sulla sicurezza sul lavoro italiana.
 
+La V1 supporta:
 
+1. ricerca puntuale di atti e articoli;
+2. domande concettuali in linguaggio naturale;
+3. piccoli casi aziendali fittizi descritti in chat.
 
-\## Stack
+Le domande storiche e il confronto automatico tra versioni sono rimandati. Lo storico viene comunque conservato nel modello dati.
 
+### Esperienza utente
 
+L'interfaccia è una chat simile a ChatGPT con un pannello delle fonti. Ogni risposta mostra, quando applicabile:
 
-\- Frontend: Vue / Nuxt
+- risposta breve;
+- condizioni, limiti e informazioni mancanti;
+- fonte, versione e data di vigenza;
+- articolo, comma e passaggio citato;
+- link alla fonte ufficiale;
+- feedback strutturato.
 
-\- Backend AI: Python
+Il sistema distingue ciò che la fonte stabilisce da ciò che dipende dal caso concreto. Può fornire una risposta condizionata, ma non dichiara autonomamente che un'azienda è conforme e non sostituisce il giudizio professionale.
 
-\- Database: PostgreSQL
+Se manca un'informazione, risponde per la parte supportata e formula una domanda di chiarimento. Se l'evidenza è insufficiente, mostra ciò che ha trovato e ciò che manca senza completare il vuoto con una risposta probabile.
 
-\- Vector search: pgvector
+### Obiettivi iniziali
 
+- recuperare quasi sempre l'evidenza pertinente;
+- non produrre risposte normative prive di supporto;
+- rendere fonti e limiti verificabili;
+- costruire una base sperimentale per imparare e migliorare il RAG.
 
+### Fuori dal perimetro dell'alpha
 
-\## Fonti e corpus V1
+- generazione del DVR;
+- analisi di immagini;
+- caricamento di documenti aziendali;
+- dati personali, sanitari o casi reali;
+- profili aziendali persistenti;
+- query storiche e confronto tra versioni;
+- discovery automatica di nuove norme;
+- GraphRAG;
+- retrieval agentico;
+- infrastruttura GPU e modelli self-hosted.
 
-Principio: **API/dati strutturati > HTML > PDF**. La source of truth normativa principale è Normattiva; Gazzetta Ufficiale viene usata come verifica/fonte autentica.
+## Principi
 
-Non ingerire più copie dello stesso testo solo perché pubblicate da enti diversi. Conservare le diverse fonti come provenance, ma scegliere una rappresentazione primaria per il retrieval.
+1. **La fonte ufficiale prevale.** Il feedback umano e le annotazioni LLM non diventano verità normativa.
+2. **La risposta deve essere verificabile.** Ogni affermazione normativa importante deve avere una citazione controllata.
+3. **Relevance e sufficiency sono problemi diversi.** Un passaggio può essere pertinente ma non sufficiente a rispondere.
+4. **Il sistema deve potersi astenere.** In assenza di evidenza ufficiale vigente non produce una risposta assertiva.
+5. **Prima la baseline, poi la complessità.** Ogni tecnica entra solo se migliora le evaluation.
+6. **Componenti sostituibili.** Modelli e provider sono adapter, non dipendenze del dominio.
+7. **Niente microservizi prematuri.** L'alpha è un modular monolith.
 
-### Corpus normativo iniziale
-
-Il corpus V1 parte da un insieme noto e controllato:
-
-- **D.Lgs. 81/2008 vigente** — backbone principale; recupero da Normattiva in formato strutturato. Conservare anche lo storico, ma indicizzare inizialmente soprattutto il vigente.
-- **Accordo Stato-Regioni 59/CSR del 17/04/2025** — formazione salute e sicurezza.
-- **FAQ ufficiali MLPS sull'Accordo 59/2025**.
-- **D.M. 388/2003** (+ rettifica) — primo soccorso.
-- **D.P.R. 462/2001** — impianti di terra/scariche atmosferiche.
-- **D.P.R. 177/2011** — ambienti confinati/sospetti di inquinamento.
-- **D.M. 11/04/2011** — verifiche periodiche delle attrezzature.
-- **D.M. 1, 2 e 3 settembre 2021** — sicurezza antincendio nei luoghi di lavoro.
-- **D.M. 13/09/2024** — modifica del D.M. 1/09/2021.
-- **D.I. 30/11/2012** — procedure standardizzate per la valutazione dei rischi.
-- **D.M. 132/2024** — patente a crediti nei cantieri.
-
-Il D.Lgs. 81/2008 copre già gran parte dei rischi specifici (chimico, biologico, rumore, vibrazioni, campi elettromagnetici, radiazioni ottiche, ATEX, movimentazione carichi, VDT, DPI, attrezzature, cantieri, ecc.).
-
-Normativa molto specialistica esterna al Testo Unico viene aggiunta dopo, quando si decide di coprire quel verticale. Esempi: REACH/CLP per aspetti avanzati del rischio chimico, D.Lgs. 101/2020 per radiazioni ionizzanti, normativa prodotto/macchine e settori speciali.
-
-### Fonti dinamiche note
-
-Per la V1 **non fare discovery automatica di nuove norme**. Si monitorano solo raccolte già note:
-
-- Ministero del Lavoro — interpelli ex art. 12 D.Lgs. 81/2008.
-- INL — circolari/note realmente pertinenti alla salute e sicurezza.
-- Vigili del Fuoco — circolari e chiarimenti collegati ai D.M. 1/2/3 settembre 2021.
-- Ministero del Lavoro — FAQ/chiarimenti sull'Accordo Stato-Regioni 59/2025.
-- Normattiva — nuove versioni consolidate degli atti già tracciati.
-
-Gli URL e le regole di acquisizione sono mantenuti in `ocio_sources.yaml`.
-
-INAIL/UNI restano fuori dal corpus normativo V1: potranno diventare in futuro un corpus tecnico separato.
-
-\## Ingestion
-
-La V1 usa **tracked sources**, non discovery automatica.
-
-```text
-source registry
-      ↓
-scarica/leggi documenti noti
-      ↓
-preferisci formato strutturato
-      ↓
-parsing canonico
-      ↓
-chunking
-      ↓
-indicizzazione
-```
-
-Gli atti originali sono sostanzialmente append-only: una nuova legge/decreto normalmente modifica, integra o abroga atti precedenti. Le **viste consolidate** (es. D.Lgs. 81 vigente su Normattiva) invece cambiano quando vengono recepite modifiche.
-
-Per ogni elemento conservare almeno:
-
-- URL/fonte
-- identificatore dell'atto
-- versione/data di vigenza
-- validità
-- hash del contenuto
-
-Aggiornamento:
+## Roadmap
 
 ```text
-atto tracciato
-   ↓
-versione/hash cambiato?
-   ├─ no → niente
-   └─ sì → parse + reindicizza solo sezioni cambiate
+1. Corpus canonico e versionato
+2. Benchmark del retrieval
+3. Generazione con citazioni e sufficiency
+4. Memoria conversazionale
+5. UI chat, fonti e feedback
+6. Alpha interna con casi fittizi
+7. Aggiornamento automatico delle fonti
+8. Casi reali e requisiti privacy
+9. Immagini e altri tool
+10. Supporto alla composizione del DVR
 ```
 
-Non rigenerare embeddings per contenuto invariato. La discovery automatica di atti completamente nuovi è posticipata a fine progetto.
+Il piano implementativo è descritto in [`docs/implementation-plan.md`](docs/implementation-plan.md).
 
-Il retrieval ordinario usa la normativa vigente. Lo storico viene conservato per audit e future query temporali.
+## Stack e architettura
 
-\## Parsing
-
-
-
-Due canali principali:
-
-
-
-1\. API/dati strutturati
-
-2\. PDF layout-aware, probabilmente Docling
-
-
-
-OCR/Vision solo come fallback.
-
-
-
-Tutte le fonti vengono convertite in un modello dati canonico.
-
-
-
-\## Chunking
-
-
-
-Scelta:
-
-
-
-\*\*Structural chunking + Parent/Child retrieval\*\*
-
-
-
-Esempio:
-
-
+- Frontend: Vue/Nuxt
+- Backend: Python
+- Database: PostgreSQL 17 o 18
+- Vector search: pgvector
+- BM25 sperimentale: `pg_textsearch`
+- Embeddings: OpenAI, dietro adapter
+- Reranking sperimentale: Cohere, dietro adapter
 
 ```text
-
-Titolo
-
-&#x20;└─ Capo
-
-&#x20;   └─ Articolo
-
-&#x20;      └─ Comma
-
+Nuxt
+  ↓ HTTP
+Python modular monolith
+  ├─ ingestion
+  ├─ retrieval
+  ├─ generation
+  ├─ conversations
+  └─ evaluation
+  ↓
+PostgreSQL
+  ├─ dati canonici
+  ├─ full-text search
+  ├─ pg_textsearch / BM25
+  └─ pgvector
 ```
 
+Ingestion, benchmark ed evaluation iniziano come comandi CLI manuali. Scheduler, code di job e servizi separati vengono introdotti solo quando esiste un requisito concreto.
 
+## Fonti e corpus
 
-Indicizzare unità piccole, mantenendo la possibilità di recuperare il contesto padre.
-
-
-
-\## Indicizzazione
-
-
-
-Doppio indice:
-
-
-
-\- semantic search → embeddings + pgvector
-
-\- lexical search → BM25
-
-
-
-\## Metadata filtering
-
-
-
-Filtrare prima del retrieval quando opportuno:
-
-
-
-\- normativa vigente
-
-\- data
-
-\- fonte
-
-\- tipo di documento
-
-\- giurisdizione
-
-\- altri metadata
-
-
-
-\## Hybrid Retrieval
-
-
-
-Pipeline scelta:
-
-
+Il registry autorevole è `ocio_sources.yaml`. La regola di acquisizione è:
 
 ```text
-
-Query
-
-&#x20;↓
-
-Metadata filtering
-
-&#x20;↓
-
-┌──────── BM25
-
-│
-
-└──────── Vector search
-
-&#x20;      ↓
-
-&#x20;     RRF
-
-&#x20;      ↓
-
-&#x20;  Reranker
-
-&#x20;      ↓
-
-&#x20;  Top chunks
-
+dati strutturati/API > HTML > PDF layout-aware > OCR/vision
 ```
 
+Normattiva è la fonte tecnica primaria per il testo vigente e multivigente. Gazzetta Ufficiale è usata come fonte autentica e verifica. Fonti duplicate diventano provenance dello stesso contenuto, non copie indipendenti nel retrieval.
 
+### Corpus del benchmark
 
-\### RRF
+1. intero D.Lgs. 81/2008 vigente;
+2. successiva aggiunta dell'Accordo Stato-Regioni 59/CSR/2025;
+3. FAQ ufficiali MLPS relative all'Accordo.
 
+Gli altri atti già elencati nel registry entrano dopo che ingestion e retrieval sono stati validati.
 
+### Aggiornamenti
 
-Reciprocal Rank Fusion fonde le classifiche BM25 e vector basandosi sul ranking, evitando di confrontare score incompatibili.
+Gli atti originali sono trattati come append-only; le viste consolidate sono versionate. Per ogni acquisizione conservare almeno:
 
+- provider e URL;
+- identificatore dell'atto;
+- versione e intervallo di vigenza;
+- hash del contenuto;
+- data di acquisizione;
+- provenance.
 
+Il controllo di nuove versioni sarà automatico, mentre la pubblicazione nell'indice richiederà inizialmente una revisione manuale. Il contenuto invariato non viene rielaborato né re-embedded.
 
-\### Reranker
-
-
-
-Valuta più accuratamente `query + chunk` sui candidati prodotti dal retrieval e sceglie quelli realmente più pertinenti.
-
-
-
-\## Query rewriting
-
-
-
-Non viene applicato automaticamente a tutto.
-
-
-
-Strategia:
-
-
+## Modello canonico
 
 ```text
-
-query originale
-
-&#x20;↓
-
-retrieval
-
-&#x20;↓
-
-risultati sufficienti?
-
-&#x20;├─ sì → continua
-
-&#x20;└─ no → rewrite / multi-query → nuova ricerca
-
+Act
+└─ ActVersion
+   └─ StructuralUnit
+      ├─ titolo
+      ├─ capo
+      ├─ articolo
+      ├─ comma
+      └─ lettera
 ```
 
+I chunk sono proiezioni indicizzabili delle unità strutturali, non la source of truth. Una stessa versione può produrre più collezioni di chunk per confrontare strategie differenti senza ripetere il parsing.
 
+## Milestone B — benchmark del retrieval
 
-La query originale viene sempre mantenuta.
-
-
-
-Query conversazionali incomplete possono essere rese autonome usando il contesto.
-
-
-
-Query precise come riferimenti ad articoli/comma non vanno riscritte inutilmente.
-
-
-
-\## Context sufficiency
-
-
-
-Dopo il reranker separare **relevance** e **sufficiency**.
-
-
+La prima milestone non genera risposte e non include una UI. Misura soltanto:
 
 ```text
-
-reranked chunks
-
-&#x20;↓
-
-Relevance gate
-
-&#x20;↓
-
-parent/context expansion
-
-&#x20;↓
-
-Sufficiency gate
-
-&#x20;├─ ANSWER → risposta
-
-&#x20;├─ RETRY → targeted retrieval / query expansion
-
-&#x20;└─ ABSTAIN → informazioni insufficienti
-
+query → candidati → ranking → evidenze attese
 ```
 
+### Dataset
 
+Il silver set iniziale contiene circa 100 query:
 
-### Relevance gate
+- 50% domande concettuali;
+- 25% piccoli casi aziendali fittizi;
+- 10% domande multi-aspetto;
+- 10% termini colloquiali o abbreviati;
+- 5% riferimenti espliciti o parziali;
+- un gruppo separato di domande non rispondibili con il corpus.
 
+Prompt versionati, eseguiti manualmente in ChatGPT, producono JSON validato automaticamente contro il corpus. Il dataset resta dichiaratamente silver: l'analisi dei fallimenti individuerà il rumore senza introdurre una pipeline di validazione complessa.
 
+Ogni caso specifica documento, articolo e, quando disponibile, comma o lettera attesi, aspetti richiesti, tipo di query, difficoltà e rispondibilità.
 
-Usare soprattutto il reranker score come filtro economico per retrieval chiaramente falliti.
+### Chunking da confrontare
 
+1. articolo intero;
+2. comma child con articolo parent;
+3. finestra fissa con overlap;
+4. chunk strutturale con accorpamento delle unità troppo brevi.
 
+Si valuta separatamente il recupero del chunk preciso e la copertura complessiva ottenuta tramite parent expansion.
 
-La soglia `tau_relevance` non è scelta a intuito: viene calibrata su un dataset annotato, privilegiando recall molto alta dei risultati realmente rilevanti. Lo score del reranker non viene trattato come probabilità.
-
-
-
-Il dataset iniziale può essere costruito con query sintetiche da fonti note + hard negatives e annotato da un LLM forte come teacher. I casi ambigui vengono esclusi o revisionati.
-
-
-
-### Sufficiency gate
-
-
-
-Valuta se il contesto contiene evidenza sufficiente per rispondere alla domanda, non solo se i chunk sono pertinenti.
-
-
-
-Segnali principali:
-
-
-
-\- coverage dei diversi aspetti della domanda
-
-\- presenza di fonti ufficiali e vigenti
-
-\- correttezza di data, versione e giurisdizione
-
-\- eventuali conflitti tra fonti
-
-\- LLM judge strutturato
-
-
-
-Possibile output:
-
-
-
-```json
-
-{
-
-  "decision": "RETRY",
-
-  "missing": ["periodicità aggiornamento"],
-
-  "retry_strategy": "targeted_retrieval"
-
-}
-
-```
-
-
-
-Il retry cerca soprattutto le informazioni mancanti, mantenendo sempre anche la query originale. Imporre un numero limitato di retry; se l'evidenza ufficiale vigente resta insufficiente → `ABSTAIN`.
-
-
-
-Per domande normative, senza una fonte ufficiale vigente sufficiente il sistema non dovrebbe produrre una risposta assertiva.
-
-
-
-### Modelli e costo
-
-
-
-Non usare un general-purpose LLM forte per ogni passaggio.
-
-
-
-\- metadata filtering, RRF, threshold, parent expansion → codice
-
-\- embeddings → embedding model dedicato
-
-\- reranking → reranker dedicato
-
-\- sufficiency ordinaria → modello LLM economico
-
-\- casi ambigui/complessi → escalation a modello più forte
-
-\- modello forte offline → teacher per dataset, eval e analisi dei failure
-
-
-
-La scelta concreta dei modelli deve essere fatta tramite eval di qualità, latenza e costo.
-
-
-
-\## Evaluation e continuous improvement
-
-
-
-Ogni run deve produrre una trace con query, candidati BM25/vector, RRF, reranking, gate, context, risposta, citazioni, versioni dei componenti, latenza e costo.
-
-
-
-Classificare i failure, ad esempio:
-
-
-
-\- source/ingestion/parsing/chunking error
-
-\- metadata filter error
-
-\- retrieval miss
-
-\- reranking error
-
-\- sufficiency false positive/negative
-
-\- query rewrite drift
-
-\- unsupported generation
-
-\- outdated/conflicting source
-
-
-
-Loop di miglioramento:
-
-
+### Candidate retrieval
 
 ```text
-
-production traces
-
-&#x20;↓
-
-automatic evaluators
-
-&#x20;↓
-
-human review dei casi dubbi/critici
-
-&#x20;↓
-
-failure classification
-
-&#x20;↓
-
-nuovo regression case / fix al sistema
-
-&#x20;↓
-
-offline experiments
-
-&#x20;↓
-
-deploy solo se le metriche migliorano
-
+riferimento esplicito ─→ lookup deterministico ─┐
+PostgreSQL FTS ────────────────────────────────┤
+pg_textsearch / BM25 ─────────────────────────┼→ fusion → rerank opzionale
+OpenAI embeddings + pgvector ─────────────────┘
 ```
 
+Il lookup deterministico accetta anche riferimenti parziali e aggiunge candidati, senza escludere la ricerca ibrida.
 
+Confronti progressivi:
 
-Il feedback umano non diventa automaticamente verità normativa: la source of truth resta la documentazione ufficiale. Il write-back può aggiornare eval dataset, regole, retrieval hints, ingestion/parsing o segnalare fonti mancanti.
+1. PostgreSQL full-text;
+2. BM25;
+3. dense retrieval;
+4. hybrid con Reciprocal Rank Fusion;
+5. hybrid con fusione pesata;
+6. miglior hybrid senza reranker contro Cohere Rerank.
 
+RRF è la baseline di fusione perché combina i rank senza confrontare score incompatibili. La fusione pesata viene mantenuta solo se migliora le evaluation.
 
+La baseline embedding è `text-embedding-3-small`; `text-embedding-3-large` è l'unico confronto iniziale. Cohere Rerank è adottato solo se produce un miglioramento materiale. L'implementazione dipende da interfacce interne, così un futuro adapter TEI può servire un reranker open-weight su CPU o GPU senza modificare la pipeline.
 
-Separare almeno tre eval set:
+Query expansion, multi-query, SPLADE, ColBERT e GraphRAG sono esperimenti differiti. Un glossario versionato di abbreviazioni e sinonimi viene provato solo dopo la baseline senza espansione.
 
+### Metriche e criterio di uscita
 
+- metrica primaria: Recall@10;
+- ranking: MRR e nDCG@5/10;
+- coverage degli aspetti per query multi-hop;
+- latenza e costo;
+- analisi dei fallimenti per categoria.
 
-1. **Retrieval relevance** — query → chunk rilevanti; largamente automatizzabile con LLM teacher.
-2. **Context sufficiency** — query + context → evidenza sufficiente o no.
-3. **Legal correctness** — query + context + risposta → correttezza normativa; richiede progressivamente validazione di esperti di dominio.
+Obiettivo indicativo per passare alla generazione:
 
+- Recall@10 almeno 90% complessivo;
+- nessuna categoria importante sotto 80%;
+- analisi manuale di ogni fallimento;
+- miglioramento verificabile rispetto a lexical-only e dense-only.
 
+Ogni run produce trace JSONL, metriche aggregate, report degli errori e un manifest con snapshot del corpus, dataset, chunking, configurazioni, modelli e versioni dei componenti.
 
-Le annotazioni generate da LLM sono inizialmente **silver labels**; il gold set cresce tramite review umana e casi reali.
+## Generazione e sufficiency
 
-
-
-\## Architettura futura
-
-
-
-Il knowledge system sarà un tool dell'agente:
-
-
+Dopo il benchmark, la pipeline iniziale sarà deterministica:
 
 ```text
-
-Safety Agent
-
-&#x20;  ├─ knowledge\_search()   → questo sistema
-
-&#x20;  ├─ analyze\_image()
-
-&#x20;  ├─ generate\_document()
-
-&#x20;  ├─ inspect\_company\_data()
-
-&#x20;  └─ altri tool
-
+query e contesto conversazionale
+        ↓
+hybrid retrieval
+        ↓
+reranker opzionale
+        ↓
+relevance threshold
+        ↓
+LLM sufficiency judge
+   ├─ ANSWER
+   └─ ABSTAIN
 ```
 
+Non sono previsti retry automatici iniziali. Verranno aggiunti solo se le trace mostrano failure recuperabili con una seconda ricerca.
 
+Il modello generativo OpenAI è configurabile: un modello economico sarà il default, con eventuale escalation a un modello più forte decisa tramite evaluation.
 
-\## Principio progettuale
+### Contratto della risposta
 
+Il backend assegna citation ID ai passaggi recuperati. Il modello può utilizzare soltanto questi ID; URL e riferimenti completi vengono risolti dal backend.
 
+```text
+Risposta breve
 
-Non assumere che una tecnica migliori il sistema solo perché è una best practice.
+Condizioni e limiti
+- dati mancanti
+- aspetti dipendenti dal caso concreto
 
+Riferimenti
+- atto, versione, articolo e comma
+- passaggio
+- data di vigenza
+- link ufficiale
+```
 
+Ogni affermazione normativa importante deve essere collegata ad almeno una citation ID.
 
-Ogni componente dovrà essere verificato tramite \*\*evaluation\*\*, confrontando almeno:
+## Conversazione
 
+La memoria non coincide con l'intera chat. È composta da:
 
+1. log completo e immutabile;
+2. finestra recente limitata da un budget di token;
+3. `case_state` tipizzato, visibile e correggibile;
+4. breve sommario degli obiettivi aperti;
+5. query autonoma per il retrieval, conservando sempre anche la query originale.
 
-\- baseline LLM puro
+I fatti del caso hanno stato `confirmed`, `inferred` o `unknown` e mantengono il riferimento al turno di origine. Il sommario non è autorevole per numeri, date e condizioni aziendali. La ricerca semantica nella cronologia viene aggiunta solo se le evaluation mostrano che finestra e stato strutturato non bastano.
 
-\- retrieval semplice
+## Tracing e feedback
 
-\- hybrid retrieval
+Per ogni turno conservare:
 
-\- hybrid + reranker
+- query originale e riscritta;
+- snapshot del `case_state`;
+- candidati lexical e dense con rank e score;
+- risultati di fusion e reranking;
+- chunk finali e relative versioni;
+- decisione di sufficiency;
+- modello, prompt, parametri e versioni;
+- risposta e mapping claim-citation;
+- latenza, costo e feedback.
 
-\- query rewriting on/off
+Il feedback nell'alpha include:
 
-\- strategie diverse di chunking
+- utile/non utile;
+- fonte corretta/non corretta;
+- risposta corretta/incompleta/errata;
+- commento opzionale;
+- fonte mancante opzionale.
 
+Per l'alpha con casi fittizi vengono conservate trace complete. Prima di accettare dati reali sarà necessario definire minimizzazione, retention, DPA, data residency e valutare Zero Data Retention. DeepSeek hosted non è un provider ammesso per dati personali italiani; può essere rivalutato soltanto come modello self-hosted.
+
+## Evaluation continua
+
+Mantenere separati almeno:
+
+1. retrieval relevance;
+2. context sufficiency;
+3. correttezza e supporto delle risposte.
+
+Le label generate da LLM sono silver. Un gold set crescerà lentamente dai casi reali e dai feedback revisionati. Il primo RSPP coinvolto fornirà feedback dall'applicazione, non è assunto come annotatore sistematico prima del rilascio.
+
+Categorie di failure:
+
+- ingestion, parsing o chunking;
+- filtro metadata;
+- retrieval miss;
+- fusione o reranking;
+- rewrite drift;
+- sufficiency false positive/negative;
+- citazione o generazione non supportata;
+- fonte obsoleta o conflittuale.
+
+## Decisioni sperimentali ancora aperte
+
+Questi punti devono essere risolti dai benchmark, non tramite preferenze:
+
+- strategia di chunking;
+- PostgreSQL FTS contro BM25;
+- embedding OpenAI small contro large;
+- RRF contro fusione pesata;
+- valore effettivo di Cohere Rerank;
+- soglie di relevance e sufficiency;
+- modello OpenAI per generation/judging;
+- dimensione della finestra conversazionale.
+
+## Approfondimenti
+
+- [`docs/research/conversational-hybrid-rag-and-orchestration.md`](docs/research/conversational-hybrid-rag-and-orchestration.md)
+- [`docs/research/postgresql-bm25-extensions.md`](docs/research/postgresql-bm25-extensions.md)
+- [`docs/research/provider-data-privacy.md`](docs/research/provider-data-privacy.md)
+- [`docs/research/reranker-online-deployment-options.md`](docs/research/reranker-online-deployment-options.md)
+- [`docs/research/retrieval-model-providers.md`](docs/research/retrieval-model-providers.md)
