@@ -1,0 +1,5 @@
+interface:
+  display_name: "Manual Review"
+  short_description: "Guide a file-by-file manual review"
+policy:
+  allow_implicit_invocation: false
