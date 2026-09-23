@@ -33,6 +33,7 @@ python -m venv .venv
 .venv/bin/pip install -e ".[dev]"
 set -a; . ../../.env; set +a
 .venv/bin/alembic upgrade head
+.venv/bin/ocio importa-dlgs-81
 ```
 
 `POSTGRES_DB`, `POSTGRES_USER` e `POSTGRES_PASSWORD` configurano sia il

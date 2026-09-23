@@ -62,6 +62,7 @@ seed_documents:
   - id: dlgs_81_2008
     title: "D.Lgs. 81/2008 - Testo unico salute e sicurezza sul lavoro"
     primary_provider: normattiva
+    source: "https://www.normattiva.it/eli/id/2008/04/30/008G0104/CONSOLIDATED"
     versions: [current, historical]
     priority: REQUIRED
     note: "Usare Normattiva strutturata per ingestion; snapshot PDF INL solo come riferimento/controllo."

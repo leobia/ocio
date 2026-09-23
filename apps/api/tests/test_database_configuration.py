@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pytest
+from sqlalchemy.engine import make_url
 
 from ocio.database import database_url
 
@@ -16,8 +17,13 @@ def test_database_url_uses_postgres_environment_variables(
     monkeypatch.setenv("DB_HOST", "database")
     monkeypatch.setenv("DB_PORT", "5433")
 
-    assert database_url() == (
-        "postgresql+psycopg://user%40example.com:p%40ss+word@database:5433/ocio"
+    url = make_url(database_url())
+    assert (url.username, url.password, url.host, url.port, url.database) == (
+        "user@example.com",
+        "p@ss word",
+        "database",
+        5433,
+        "ocio",
     )
 
 
