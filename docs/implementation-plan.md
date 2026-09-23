@@ -4,7 +4,7 @@ GitHub Issues are the source of truth for implementation detail, acceptance crit
 
 ## Milestone A — corpus canonico
 
-#1 Bootstrap · #2 Schema atti · #3 Acquisizione D.Lgs. 81/2008 · #4 Parser strutturale
+#1 Bootstrap · #2 Schema atti · #3 Acquisizioni versionate del corpus V1 · #4 Parser strutturale
 
 ## Milestone B — benchmark retrieval
 

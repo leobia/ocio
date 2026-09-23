@@ -122,7 +122,10 @@ Ingestion, benchmark ed evaluation iniziano come comandi CLI manuali. Scheduler,
 
 ## Fonti e corpus
 
-Il registry autorevole è `ocio_sources.yaml`. La regola di acquisizione è:
+`ocio_sources.yaml` registra provenienza e metadati del corpus. Nel corpus iniziale
+conserveremo ogni acquisizione della fonte come file immutabile nel repository.
+La scelta è descritta in [ADR 0001](docs/adr/0001-acquisizioni-versionate-in-git.md).
+La regola per scegliere il formato è:
 
 ```text
 dati strutturati/API > HTML > PDF layout-aware > OCR/vision
@@ -149,7 +152,9 @@ Gli atti originali sono trattati come append-only; le viste consolidate sono ver
 - data di acquisizione;
 - provenance.
 
-Il controllo di nuove versioni sarà automatico, mentre la pubblicazione nell'indice richiederà inizialmente una revisione manuale. Il contenuto invariato non viene rielaborato né re-embedded.
+Nell'alpha nuove acquisizioni e redazioni saranno aggiunte manualmente; il controllo
+automatico delle nuove versioni resta nella roadmap. Il contenuto invariato non
+viene rielaborato né re-embedded.
 
 ## Modello canonico
 
