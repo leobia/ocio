@@ -1,6 +1,5 @@
-# OCIO source registry
-# Il software usa questo file per acquisire/aggiornare fonti note.
-# Discovery automatica di nuovi atti: posticipata.
+# Registro OCIO delle fonti e delle acquisizioni locali.
+# Le fonti remote si acquisiscono manualmente; l'importazione usa solo i file locali.
 version: 2
 
 ingestion_policy:
@@ -35,7 +34,7 @@ providers:
     interpelli: "https://www.lavoro.gov.it/documenti-e-norme/interpelli/Pagine/default"
     interpelli_info: "https://www.lavoro.gov.it/temi-e-priorita/salute-e-sicurezza/focus-on/interpello/pagine/default"
     accordo_2025: "https://www.lavoro.gov.it/temi-e-priorita/salute-e-sicurezza/focus/pagine/accordo-stato-regioni-del-17042025-materia-di-formazione"
-    accordo_2025_pdf: "https://lavoro.gov.it/sites/default/files/documenti-pubblicita-legale/Accordo%20formazione%20salute%20e%20sicurezza%20sancito%20CSR%2017%20aprile%202025.pdf"
+    accordo_2025_pdf: "https://lavoro.gov.it/temi-e-priorita-salute-e-sicurezza/focus/accordo-stato-regioni-17042025-allegato"
     faq_accordo_2025: "https://www.lavoro.gov.it/temi-e-priorita-salute-e-sicurezza/focus/faq-accordo-stato-regioni-27032026"
 
   inl:
@@ -63,65 +62,213 @@ seed_documents:
     title: "D.Lgs. 81/2008 - Testo unico salute e sicurezza sul lavoro"
     primary_provider: normattiva
     source: "https://www.normattiva.it/eli/id/2008/04/30/008G0104/CONSOLIDATED"
-    versions: [current, historical]
+    acquisition_url: "https://www.normattiva.it/do/atto/caricaAKN?dataGU=20080430&codiceRedaz=008G0104&dataVigenza=20260923"
+    local_path: "corpus/fonti/dlgs_81_2008/2026-09-23.xml"
+    format: akn_xml
+    acquired_on: "2026-09-23"
+    sha256: "0f9d05971da64d3e631a1fe7164038325d6899807232d6a4892c00581d0f415e"
+    snapshot_as_of: "2026-09-23"
+    versions: [current]
     priority: REQUIRED
     note: "Usare Normattiva strutturata per ingestion; snapshot PDF INL solo come riferimento/controllo."
 
   - id: accordo_59_csr_2025
     title: "Accordo Stato-Regioni 59/CSR del 17/04/2025"
     primary_provider: mlps
+    source: "https://lavoro.gov.it/temi-e-priorita-salute-e-sicurezza/focus/accordo-stato-regioni-17042025-allegato"
+    source_page: "https://www.lavoro.gov.it/temi-e-priorita/salute-e-sicurezza/focus/pagine/accordo-stato-regioni-del-17042025-materia-di-formazione"
+    gazzetta_url: "https://www.gazzettaufficiale.it/atto/vediMenuHTML?atto.codiceRedazionale=25A03080&atto.dataPubblicazioneGazzetta=2025-05-24&tipoSerie=serie_generale&tipoVigenza=originario"
+    local_path: "corpus/fonti/accordo_59_csr_2025/2026-09-23.pdf"
+    format: pdf
+    acquired_on: "2026-09-23"
+    sha256: "b19c35cdfcb5bfc53c813ace8e5cde48842372117caa72ae7698288f7a565c43"
+    vigente_dal: "2025-05-19"
     priority: REQUIRED
 
   - id: faq_accordo_59_2025
     title: "FAQ ufficiali MLPS sull'Accordo 59/2025"
     primary_provider: mlps
+    source: "https://www.lavoro.gov.it/temi-e-priorita-salute-e-sicurezza/focus/faq-accordo-stato-regioni-27032026"
+    local_path: "corpus/fonti/faq_accordo_59_2025/2026-09-23.pdf"
+    format: pdf
+    acquired_on: "2026-09-23"
+    sha256: "47b7e49d5684d979db24dd26baee3aa27bafef4cada509d14f45ffb5f158f215"
+    published_on: "2026-03-27"
     priority: REQUIRED
 
   - id: dm_388_2003
     title: "D.M. 15 luglio 2003 n. 388 - primo soccorso"
-    primary_provider: gazzetta
-    source: "https://www.gazzettaufficiale.it/eli/id/2004/02/03/004G0046/sg"
+    primary_provider: normattiva
+    source: "https://www.normattiva.it/eli/id/2004/02/03/004G0046/CONSOLIDATED"
+    acquisition_url: "https://www.normattiva.it/do/atto/caricaAKN?dataGU=20040203&codiceRedaz=004G0046&dataVigenza=20260923"
+    gazzetta_url: "https://www.gazzettaufficiale.it/eli/id/2004/02/03/004G0046/sg"
+    local_path: "corpus/fonti/dm_388_2003/2026-09-23.xml"
+    format: akn_xml
+    acquired_on: "2026-09-23"
+    sha256: "c1c0f6d09b1a188ac3245209aba0e6d5883fc9bef922518d6f18c66db0724335"
+    vigente_dal: "2004-08-03"
     correction: "https://www.gazzettaufficiale.it/eli/id/2004/05/04/04A04601/sg"
     priority: REQUIRED
 
   - id: dpr_462_2001
     title: "D.P.R. 22 ottobre 2001 n. 462 - impianti di terra/scariche atmosferiche"
-    primary_provider: gazzetta
-    source: "https://www.gazzettaufficiale.it/eli/id/2002/01/08/001G0521/sg"
+    primary_provider: normattiva
+    source: "https://www.normattiva.it/eli/id/2002/01/08/001G0521/CONSOLIDATED"
+    acquisition_url: "https://www.normattiva.it/do/atto/caricaAKN?dataGU=20020108&codiceRedaz=001G0521&dataVigenza=20260923"
+    gazzetta_url: "https://www.gazzettaufficiale.it/eli/id/2002/01/08/001G0521/sg"
+    local_path: "corpus/fonti/dpr_462_2001/2026-09-23.xml"
+    format: akn_xml
+    acquired_on: "2026-09-23"
+    sha256: "84cf4a94f3be291ec1a1d04bb2d69bfdd870578bb1979106005c78707d3c0e9e"
+    vigente_dal: "2020-03-01"
     priority: REQUIRED
 
   - id: dpr_177_2011
     title: "D.P.R. 14 settembre 2011 n. 177 - ambienti confinati"
-    primary_provider: gazzetta
-    source: "https://www.gazzettaufficiale.it/eli/id/2011/11/08/011G0219/sg"
+    primary_provider: normattiva
+    source: "https://www.normattiva.it/eli/id/2011/11/08/011G0219/CONSOLIDATED"
+    acquisition_url: "https://www.normattiva.it/do/atto/caricaAKN?dataGU=20111108&codiceRedaz=011G0219&dataVigenza=20260923"
+    gazzetta_url: "https://www.gazzettaufficiale.it/eli/id/2011/11/08/011G0219/sg"
+    local_path: "corpus/fonti/dpr_177_2011/2026-09-23.xml"
+    format: akn_xml
+    acquired_on: "2026-09-23"
+    sha256: "77bd877acc88519e7b551bbd7f5339b18764607997567f4bda56c26af308b842"
+    vigente_dal: "2011-11-23"
     priority: REQUIRED
 
   - id: dm_11_04_2011
     title: "D.M. 11 aprile 2011 - verifiche periodiche attrezzature"
     primary_provider: gazzetta
     source: "https://www.gazzettaufficiale.it/eli/id/2011/04/29/11A05462/sg"
+    vigente_dal: "2011-07-28"
+    vigenza_per_allegato:
+      III: "2011-04-30"
+    acquisitions:
+      - part: "Art. 1"
+        source: "https://www.gazzettaufficiale.it/atto/serie_generale/caricaArticolo?art.versione=1&art.idGruppo=0&art.flagTipoArticolo=0&art.codiceRedazionale=11A05462&art.idArticolo=1&art.idSottoArticolo=1&art.idSottoArticolo1=10&art.dataPubblicazioneGazzetta=2011-04-29&art.progressivo=0"
+        local_path: "corpus/fonti/dm_11_04_2011/2026-09-23-1.html"
+        format: html
+        acquired_on: "2026-09-23"
+        sha256: "b4aaf1360ff66ccb714cbdcb2b90fc8c9476585c3bb7e6fad1ffe5871ea75ac1"
+      - part: "Art. 2"
+        source: "https://www.gazzettaufficiale.it/atto/serie_generale/caricaArticolo?art.versione=1&art.idGruppo=0&art.flagTipoArticolo=0&art.codiceRedazionale=11A05462&art.idArticolo=2&art.idSottoArticolo=1&art.idSottoArticolo1=10&art.dataPubblicazioneGazzetta=2011-04-29&art.progressivo=0"
+        local_path: "corpus/fonti/dm_11_04_2011/2026-09-23-2.html"
+        format: html
+        acquired_on: "2026-09-23"
+        sha256: "46709e4bae86115ef5c8dbf793d91379b288fcbf8f3fa2fdbeb7c761a5eff0fb"
+      - part: "Art. 3"
+        source: "https://www.gazzettaufficiale.it/atto/serie_generale/caricaArticolo?art.versione=1&art.idGruppo=0&art.flagTipoArticolo=0&art.codiceRedazionale=11A05462&art.idArticolo=3&art.idSottoArticolo=1&art.idSottoArticolo1=10&art.dataPubblicazioneGazzetta=2011-04-29&art.progressivo=0"
+        local_path: "corpus/fonti/dm_11_04_2011/2026-09-23-3.html"
+        format: html
+        acquired_on: "2026-09-23"
+        sha256: "c13368080ca0ee6c6313d16f4dee38f16deca60872636a7a199ebeb974dcda1c"
+      - part: "Art. 4"
+        source: "https://www.gazzettaufficiale.it/atto/serie_generale/caricaArticolo?art.versione=1&art.idGruppo=0&art.flagTipoArticolo=0&art.codiceRedazionale=11A05462&art.idArticolo=4&art.idSottoArticolo=1&art.idSottoArticolo1=10&art.dataPubblicazioneGazzetta=2011-04-29&art.progressivo=0"
+        local_path: "corpus/fonti/dm_11_04_2011/2026-09-23-4.html"
+        format: html
+        acquired_on: "2026-09-23"
+        sha256: "cc6225ba538eaee5394bc5cf077e1e734bce3f9aad0ea8b0027108bb9f1d7c07"
+      - part: "Art. 5"
+        source: "https://www.gazzettaufficiale.it/atto/serie_generale/caricaArticolo?art.versione=1&art.idGruppo=0&art.flagTipoArticolo=0&art.codiceRedazionale=11A05462&art.idArticolo=5&art.idSottoArticolo=1&art.idSottoArticolo1=10&art.dataPubblicazioneGazzetta=2011-04-29&art.progressivo=0"
+        local_path: "corpus/fonti/dm_11_04_2011/2026-09-23-5.html"
+        format: html
+        acquired_on: "2026-09-23"
+        sha256: "75da8261ab9e0b4081fcc0220ec700e7ef1ffa9ae5112521fdac1b79e165df6d"
+      - part: "Art. 6"
+        source: "https://www.gazzettaufficiale.it/atto/serie_generale/caricaArticolo?art.versione=1&art.idGruppo=0&art.flagTipoArticolo=0&art.codiceRedazionale=11A05462&art.idArticolo=6&art.idSottoArticolo=1&art.idSottoArticolo1=10&art.dataPubblicazioneGazzetta=2011-04-29&art.progressivo=0"
+        local_path: "corpus/fonti/dm_11_04_2011/2026-09-23-6.html"
+        format: html
+        acquired_on: "2026-09-23"
+        sha256: "e770126c74438d89a3965b004bebe8281cbda0a7a752a2f7a8ce2c50131a4b4c"
+      - part: "Allegato I"
+        source: "https://www.gazzettaufficiale.it/atto/serie_generale/caricaArticolo?art.versione=1&art.idGruppo=0&art.flagTipoArticolo=1&art.codiceRedazionale=11A05462&art.idArticolo=1&art.idSottoArticolo=1&art.idSottoArticolo1=10&art.dataPubblicazioneGazzetta=2011-04-29&art.progressivo=0"
+        local_path: "corpus/fonti/dm_11_04_2011/2026-09-23-allegato-i.html"
+        format: html
+        acquired_on: "2026-09-23"
+        sha256: "0c25e91b3a1db91acd8063f9a596c0925d5daac8e452d71387cdcb104abbb3c8"
+      - part: "Allegato II"
+        source: "https://www.gazzettaufficiale.it/atto/serie_generale/caricaArticolo?art.versione=1&art.idGruppo=0&art.flagTipoArticolo=2&art.codiceRedazionale=11A05462&art.idArticolo=1&art.idSottoArticolo=1&art.idSottoArticolo1=10&art.dataPubblicazioneGazzetta=2011-04-29&art.progressivo=0"
+        local_path: "corpus/fonti/dm_11_04_2011/2026-09-23-allegato-ii.html"
+        format: html
+        acquired_on: "2026-09-23"
+        sha256: "9ea92e012b8cf17d904467ce64017103b78b7db5503e091b7113a880f820e37b"
+      - part: "Allegato III"
+        source: "https://www.gazzettaufficiale.it/atto/serie_generale/caricaArticolo?art.versione=1&art.idGruppo=0&art.flagTipoArticolo=3&art.codiceRedazionale=11A05462&art.idArticolo=1&art.idSottoArticolo=1&art.idSottoArticolo1=10&art.dataPubblicazioneGazzetta=2011-04-29&art.progressivo=0"
+        local_path: "corpus/fonti/dm_11_04_2011/2026-09-23-allegato-iii.html"
+        format: html
+        acquired_on: "2026-09-23"
+        sha256: "97404ff70bd225776afd3a51f7f68025e8d908fe018d56a2a364d48804ab4169"
+      - part: "Allegato IV"
+        source: "https://www.gazzettaufficiale.it/atto/serie_generale/caricaArticolo?art.versione=1&art.idGruppo=0&art.flagTipoArticolo=4&art.codiceRedazionale=11A05462&art.idArticolo=1&art.idSottoArticolo=1&art.idSottoArticolo1=10&art.dataPubblicazioneGazzetta=2011-04-29&art.progressivo=0"
+        local_path: "corpus/fonti/dm_11_04_2011/2026-09-23-allegato-iv.html"
+        format: html
+        acquired_on: "2026-09-23"
+        sha256: "e6a49cda254f803e04a4884d9a245cd17eec4ca47a1bc164310718290fc300dc"
     priority: REQUIRED
 
   - id: dm_1_2_3_settembre_2021
     title: "D.M. 1, 2 e 3 settembre 2021 - sicurezza antincendio nei luoghi di lavoro"
     primary_provider: vvf
+    source: "https://www.vigilfuoco.it/sites/default/files/2024-09/COORD_DDMM_01-02-03_09_2021_0.pdf"
+    local_path: "corpus/fonti/dm_1_2_3_settembre_2021/2026-09-23.pdf"
+    format: pdf
+    acquired_on: "2026-09-23"
+    sha256: "73902061aef95eece05559f7cded3be75d92bfc99901df79b7a9297c4d61795c"
+    vigenza_per_decreto:
+      dm_1_settembre_2021: "2022-09-25"
+      dm_2_settembre_2021: "2022-10-04"
+      dm_3_settembre_2021: "2022-10-29"
     priority: REQUIRED
 
   - id: dm_13_09_2024
     title: "D.M. 13 settembre 2024 - modifiche al D.M. 1 settembre 2021"
-    primary_provider: vvf
+    primary_provider: gazzetta
+    source: "https://www.gazzettaufficiale.it/eli/id/2024/09/18/24A04853/sg"
+    vigente_dal: "2024-09-19"
+    acquisitions:
+      - part: "Art. 1"
+        source: "https://www.gazzettaufficiale.it/atto/serie_generale/caricaArticolo?art.versione=1&art.idGruppo=0&art.flagTipoArticolo=0&art.codiceRedazionale=24A04853&art.idArticolo=1&art.idSottoArticolo=1&art.idSottoArticolo1=10&art.dataPubblicazioneGazzetta=2024-09-18&art.progressivo=0"
+        local_path: "corpus/fonti/dm_13_09_2024/2026-09-23-1.html"
+        format: html
+        acquired_on: "2026-09-23"
+        sha256: "e3fd09cefca5e553c1b358aa47aaa80efcf90f665d2b36ca9ecc59846609152b"
+      - part: "Art. 2"
+        source: "https://www.gazzettaufficiale.it/atto/serie_generale/caricaArticolo?art.versione=1&art.idGruppo=0&art.flagTipoArticolo=0&art.codiceRedazionale=24A04853&art.idArticolo=2&art.idSottoArticolo=1&art.idSottoArticolo1=10&art.dataPubblicazioneGazzetta=2024-09-18&art.progressivo=0"
+        local_path: "corpus/fonti/dm_13_09_2024/2026-09-23-2.html"
+        format: html
+        acquired_on: "2026-09-23"
+        sha256: "e196143a60cd7b19df8427c938b749fc31d5d5e013a7ab1c7d29f9d01da57025"
+      - part: "Art. 3"
+        source: "https://www.gazzettaufficiale.it/atto/serie_generale/caricaArticolo?art.versione=1&art.idGruppo=0&art.flagTipoArticolo=0&art.codiceRedazionale=24A04853&art.idArticolo=3&art.idSottoArticolo=1&art.idSottoArticolo1=10&art.dataPubblicazioneGazzetta=2024-09-18&art.progressivo=0"
+        local_path: "corpus/fonti/dm_13_09_2024/2026-09-23-3.html"
+        format: html
+        acquired_on: "2026-09-23"
+        sha256: "2996cf48dade122e606645366a27f18bbb7ceec6cea521e834a303e36a5cba80"
     priority: REQUIRED
 
   - id: di_30_11_2012
     title: "D.I. 30 novembre 2012 - procedure standardizzate per la valutazione dei rischi"
     primary_provider: mlps
-    source: "https://www.gazzettaufficiale.it/atto/vediMenuHTML?atto.codiceRedazionale=12A12848&atto.dataPubblicazioneGazzetta=2012-12-06&tipoSerie=serie_generale&tipoVigenza=originario"
+    gazzetta_url: "https://www.gazzettaufficiale.it/atto/vediMenuHTML?atto.codiceRedazionale=12A12848&atto.dataPubblicazioneGazzetta=2012-12-06&tipoSerie=serie_generale&tipoVigenza=originario"
+    source: "https://www.lavoro.gov.it/sites/default/files/archivio-doc-pregressi/SicurezzaLavoro/Procedurastandardizzata.pdf"
+    local_path: "corpus/fonti/di_30_11_2012/2026-09-23.pdf"
+    format: pdf
+    acquired_on: "2026-09-23"
+    sha256: "443d2e8edf95b18549829de208c94a08179641759cf8e04edaa3389b0681444a"
+    vigente_dal: "2013-02-04"
     priority: REQUIRED
 
   - id: dm_132_2024
     title: "D.M. 18 settembre 2024 n. 132 - patente a crediti"
-    primary_provider: gazzetta
-    source: "https://www.gazzettaufficiale.it/eli/id/2024/09/20/24G00151/sg"
+    primary_provider: normattiva
+    source: "https://www.normattiva.it/eli/id/2024/09/20/24G00151/CONSOLIDATED"
+    acquisition_url: "https://www.normattiva.it/do/atto/caricaAKN?dataGU=20240920&codiceRedaz=24G00151&dataVigenza=20260923"
+    gazzetta_url: "https://www.gazzettaufficiale.it/eli/id/2024/09/20/24G00151/sg"
+    local_path: "corpus/fonti/dm_132_2024/2026-09-23.xml"
+    format: akn_xml
+    acquired_on: "2026-09-23"
+    sha256: "261f323fe7177bd72f5e7c8cdb453eb862ad618dbefcba84cc578c6241a8054e"
+    vigente_dal: "2024-10-01"
     priority: REQUIRED_FOR_CONSTRUCTION
 
 # Queste raccolte vengono sincronizzate, ma non richiedono discovery di fonti nuove.

@@ -6,7 +6,8 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 
 import pytest
-from sqlalchemy import create_engine, inspect, text
+from sqlalchemy import LargeBinary, create_engine, inspect, text
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.exc import IntegrityError
@@ -43,6 +44,10 @@ def database_connection() -> Iterator[Connection]:
 @pytest.mark.integration
 def test_canonical_corpus_schema_tracks_domain_concepts() -> None:
     inspector = database_inspector()
+    acquisition_columns = {
+        column["name"]: column["type"]
+        for column in inspector.get_columns("acquisizioni_fonti")
+    }
 
     columns = {
         table: {column["name"] for column in inspector.get_columns(table)}
@@ -70,6 +75,7 @@ def test_canonical_corpus_schema_tracks_domain_concepts() -> None:
             "contenuto",
             "sha256",
             "acquisita_il",
+            "metadati",
         },
         "partizioni_normative": {
             "id",
@@ -81,6 +87,8 @@ def test_canonical_corpus_schema_tracks_domain_concepts() -> None:
             "contenuto",
         },
     }
+    assert isinstance(acquisition_columns["contenuto"], LargeBinary)
+    assert isinstance(acquisition_columns["metadati"], JSONB)
 
     foreign_keys = {
         table: {
@@ -135,7 +143,7 @@ def test_source_content_is_acquired_only_once_per_source_hash() -> None:
             text(
                 "INSERT INTO acquisizioni_fonti "
                 "(fonte, url, contenuto, sha256) VALUES "
-                "('Normattiva', 'https://example.test/1', '<atto />', :sha256)"
+                "('Normattiva', 'https://example.test/1', decode('<atto />', 'escape'), :sha256)"
             ),
             {"sha256": sha256},
         )
@@ -145,7 +153,7 @@ def test_source_content_is_acquired_only_once_per_source_hash() -> None:
                 text(
                     "INSERT INTO acquisizioni_fonti "
                     "(fonte, url, contenuto, sha256) VALUES "
-                    "('Normattiva', 'https://example.test/2', '<atto />', :sha256)"
+                    "('Normattiva', 'https://example.test/2', decode('<atto />', 'escape'), :sha256)"
                 ),
                 {"sha256": sha256},
             )
@@ -164,7 +172,7 @@ def test_redactions_coexist_only_when_validity_intervals_do_not_overlap() -> Non
             text(
                 "INSERT INTO acquisizioni_fonti "
                 "(fonte, url, contenuto, sha256) VALUES "
-                "('Normattiva', 'https://example.test/redazioni', '<atto />', :sha256) "
+                "('Normattiva', 'https://example.test/redazioni', decode('<atto />', 'escape'), :sha256) "
                 "RETURNING id"
             ),
             {"sha256": "b" * 64},
@@ -193,10 +201,7 @@ def test_redactions_coexist_only_when_validity_intervals_do_not_overlap() -> Non
             )
 
         count = connection.execute(
-            text(
-                "SELECT count(*) FROM redazioni "
-                "WHERE atto_normativo_id = :act_id"
-            ),
+            text("SELECT count(*) FROM redazioni WHERE atto_normativo_id = :act_id"),
             parameters,
         ).scalar_one()
 
@@ -216,7 +221,7 @@ def test_redaction_must_have_a_positive_validity_interval() -> None:
             text(
                 "INSERT INTO acquisizioni_fonti "
                 "(fonte, url, contenuto, sha256) VALUES "
-                "('Normattiva', 'https://example.test/intervallo', '<atto />', :sha256) "
+                "('Normattiva', 'https://example.test/intervallo', decode('<atto />', 'escape'), :sha256) "
                 "RETURNING id"
             ),
             {"sha256": "c" * 64},
@@ -246,7 +251,7 @@ def test_partition_identifier_is_unique_within_a_redaction() -> None:
                 "  INSERT INTO acquisizioni_fonti "
                 "  (fonte, url, contenuto, sha256) VALUES "
                 "  ('Normattiva', 'https://example.test/partizioni', "
-                "   '<atto />', :sha256) RETURNING id"
+                "   decode('<atto />', 'escape'), :sha256) RETURNING id"
                 ") INSERT INTO redazioni "
                 "(atto_normativo_id, acquisizione_fonte_id, vigente_dal) "
                 "SELECT act.id, acquisition.id, '2024-01-01' "
@@ -278,24 +283,28 @@ def test_partition_identifier_is_unique_within_a_redaction() -> None:
 @pytest.mark.integration
 def test_partition_parent_belongs_to_the_same_redaction() -> None:
     with database_connection() as connection:
-        redaction_ids = connection.execute(
-            text(
-                "WITH acts AS ("
-                "  INSERT INTO atti_normativi (urn, titolo) VALUES "
-                "  ('urn:test:gerarchia:1', 'Atto 1'), "
-                "  ('urn:test:gerarchia:2', 'Atto 2') RETURNING id, urn"
-                "), acquisition AS ("
-                "  INSERT INTO acquisizioni_fonti "
-                "  (fonte, url, contenuto, sha256) VALUES "
-                "  ('Normattiva', 'https://example.test/gerarchia', "
-                "   '<atti />', :sha256) RETURNING id"
-                ") INSERT INTO redazioni "
-                "(atto_normativo_id, acquisizione_fonte_id, vigente_dal) "
-                "SELECT acts.id, acquisition.id, '2024-01-01' "
-                "FROM acts, acquisition ORDER BY acts.urn RETURNING id"
-            ),
-            {"sha256": "e" * 64},
-        ).scalars().all()
+        redaction_ids = (
+            connection.execute(
+                text(
+                    "WITH acts AS ("
+                    "  INSERT INTO atti_normativi (urn, titolo) VALUES "
+                    "  ('urn:test:gerarchia:1', 'Atto 1'), "
+                    "  ('urn:test:gerarchia:2', 'Atto 2') RETURNING id, urn"
+                    "), acquisition AS ("
+                    "  INSERT INTO acquisizioni_fonti "
+                    "  (fonte, url, contenuto, sha256) VALUES "
+                    "  ('Normattiva', 'https://example.test/gerarchia', "
+                    "   decode('<atti />', 'escape'), :sha256) RETURNING id"
+                    ") INSERT INTO redazioni "
+                    "(atto_normativo_id, acquisizione_fonte_id, vigente_dal) "
+                    "SELECT acts.id, acquisition.id, '2024-01-01' "
+                    "FROM acts, acquisition ORDER BY acts.urn RETURNING id"
+                ),
+                {"sha256": "e" * 64},
+            )
+            .scalars()
+            .all()
+        )
         parent_id = connection.execute(
             text(
                 "INSERT INTO partizioni_normative "

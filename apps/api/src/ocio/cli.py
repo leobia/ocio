@@ -5,14 +5,16 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from ocio.acquisition import AcquisitionError, import_dlgs_81
+from ocio.acquisition import AcquisitionError, import_source_acquisitions
 
 
 def main() -> int:
     """Run the OCIO command-line interface."""
     parser = argparse.ArgumentParser(description="OCIO backend")
     commands = parser.add_subparsers(dest="command")
-    importer = commands.add_parser("importa-dlgs-81", help="Acquisisce il D.Lgs. 81/2008 da Normattiva")
+    importer = commands.add_parser(
+        "importa-corpus", help="Importa le acquisizioni locali del corpus"
+    )
     importer.add_argument(
         "--sources",
         type=Path,
@@ -20,10 +22,10 @@ def main() -> int:
         help="Percorso del registro delle fonti",
     )
     args = parser.parse_args()
-    if args.command == "importa-dlgs-81":
+    if args.command == "importa-corpus":
         try:
-            created, digest = import_dlgs_81(args.sources)
+            total = import_source_acquisitions(args.sources)
         except AcquisitionError as error:
-            parser.exit(1, f"Acquisizione fallita: {error}\n")
-        print(f"Acquisizione {'acquisita' if created else 'già presente'}: {digest}")
+            parser.exit(1, f"Importazione fallita: {error}\n")
+        print(f"Corpus importato: {total} acquisizioni locali verificate.")
     return 0

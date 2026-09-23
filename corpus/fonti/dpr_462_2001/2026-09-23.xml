@@ -1,0 +1,616 @@
+<?xml version="1.0" encoding="UTF-8"?><akomaNtoso xmlns="http://docs.oasis-open.org/legaldocml/ns/akn/3.0" xmlns:eli="http://data.europa.eu/eli/ontology#" xmlns:fo="urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0" xmlns:gu="http://www.gazzettaufficiale.it/eli/" xmlns:html="http://www.w3.org/1999/xhtml" xmlns:na="http://www.normattiva.it/eli/" xmlns:nakn="http://normattiva.it/akn/vocabulary" xmlns:nrdfa="http://www.normattiva.it/rdfa/" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:rdfa="http://www.w3.org/1999/xhtml#">
+    <act name="monovigente">
+        <meta>
+            <identification source="">
+                <FRBRWork>
+                    <FRBRthis value="/akn/it/act/decreto_del_presidente_della_repubblica/stato/2001-10-22/462/!main"/>
+                    <FRBRuri value="/akn/it/act/decreto_del_presidente_della_repubblica/stato/2001-10-22/462"/>
+                    <FRBRalias name="urn:nir" value="urn:nir:stato:decreto.del.presidente.della.repubblica:2001-10-22;462"/>
+                    <FRBRalias name="eli" value="eli/id/2002/01/08/001G0521/CONSOLIDATED/20200301"/>
+                    <FRBRdate date="2001-10-22" name=""/>
+                    <FRBRauthor as="#author" href=""/>
+                    <preservation>
+                        <nrdfa:eli about="na:id/2002/01/08/001G0521/CONSOLIDATED/20200301" aknrelname="eli/id/2002/01/08/001G0521/CONSOLIDATED/20200301">
+                            <nrdfa:span property="rdf:type" resource="eli:LegalResource"/>
+                            <nrdfa:span content="Regolamento di semplificazione del procedimento per la denuncia di installazioni e dispositivi di protezione contro le scariche atmosferiche, di dispositivi di messa a terra di impianti elettrici e di impianti elettrici pericolosi. " lang="it" property="eli:title" xml:lang="it"/>
+                            <nrdfa:span content="http://www.normattiva.it/eli/id/{yyyy}/{mm}/{dd}/{codiceRedazionale}/{tipoVersione}" property="eli:uri_schema"/>
+                            <nrdfa:span content="001G0521" property="eli:id_local"/>
+                            <nrdfa:span property="eli:type_document" resource="gu:tables/resource-type#DECRETO DEL PRESIDENTE DELLA REPUBBLICA"/>
+                            <nrdfa:span content="2001-10-22" datatype="xsd:date" property="eli:date_document"/>
+                            <nrdfa:span property="eli:version" resource="gu:tables/versions#ORIGINAL"/>
+                        </nrdfa:eli>
+                    </preservation>
+                    <FRBRcountry value="it"/>
+                </FRBRWork>
+                <FRBRExpression>
+                    <FRBRthis value="/akn/it/act/decreto_del_presidente_della_repubblica/stato/2001-10-22/462/ita@2020-03-01/!main"/>
+                    <FRBRuri value="/akn/it/act/decreto_del_presidente_della_repubblica/stato/2001-10-22/462/ita@2020-03-01"/>
+                    <FRBRdate date="2020-03-01" name=""/>
+                    <FRBRauthor as="#author" href=""/>
+                    <preservation>
+                        <nrdfa:eli about="na:id/2002/01/08/001G0521/CONSOLIDATED/20200301/ita">
+                            <nrdfa:span property="rdf:type" resource="eli:LegalExpression"/>
+                            <nrdfa:span property="eli:realizes" resource="na:id/2002/01/08/001G0521/CONSOLIDATED/20200301"/>
+                            <nrdfa:span property="eli:is_embodied_by" resource="na:id/2002/01/08/001G0521/CONSOLIDATED/20200301/ita/akn"/>
+                            <nrdfa:span property="eli:language" resource="http://publications.europa.eu/resource/authority/language/ITA"/>
+                            <nrdfa:span property="eli:publisher_agent" resource="http://www.ipzs.it"/>
+                        </nrdfa:eli>
+                    </preservation>
+                    <FRBRlanguage language="ita"/>
+                </FRBRExpression>
+                <FRBRManifestation>
+                    <FRBRthis value="/akn/it/act/decreto_del_presidente_della_repubblica/stato/2001-10-22/462/ita@2020-03-01/!main.xml"/>
+                    <FRBRuri value="/akn/it/act/decreto_del_presidente_della_repubblica/stato/2001-10-22/462/ita@2020-03-01.xml"/>
+                    <FRBRdate date="2001-10-22" name=""/>
+                    <FRBRauthor as="#author" href=""/>
+                    <preservation>
+                        <nrdfa:eli about="na:id/2002/01/08/001G0521/CONSOLIDATED/20200301/ita/akn">
+                            <nrdfa:span property="rdf:type" resource="eli:Format"/>
+                            <nrdfa:span property="eli:format" resource="http://www.iana.org/assignments/media-types/xml"/>
+                        </nrdfa:eli>
+                    </preservation>
+                </FRBRManifestation>
+            </identification>
+            <publication date="2002-01-08" name="" number="6" showAs=""/>
+            <lifecycle source="">
+                <eventRef date="2002-01-08" eId="eventRef_0" source="ro1"/>
+                <eventRef date="2019-12-31" eId="eventRef_1" source="rp1"/>
+                <eventRef date="2020-02-29" eId="eventRef_2" source="rp2"/>
+            </lifecycle>
+            <analysis source="">
+                <activeModifications>
+                    <textualMod eId="amod_0" type="insertion">
+                        <source href="urn:nir:stato:decreto.del.presidente.della.repubblica:2001-10-22;462#9"/>
+                        <destination href="urn:nir:stato:decreto.del.presidente.della.repubblica:1955-04-27;547#40"/>
+                        <new>
+                            <nakn:text>ha disposto (con l'art.9) l'abrogazione dell'art.40.</nakn:text>
+                        </new>
+                    </textualMod>
+                    <textualMod eId="amod_1" type="insertion">
+                        <source href="urn:nir:stato:decreto.del.presidente.della.repubblica:2001-10-22;462#9"/>
+                        <destination href="urn:nir:stato:decreto.del.presidente.della.repubblica:1955-04-27;547#328"/>
+                        <new>
+                            <nakn:text>ha disposto (con l'art.9) l'abrogazione dell'art.328.</nakn:text>
+                        </new>
+                    </textualMod>
+                </activeModifications>
+                <passiveModifications>
+                    <textualMod eId="pmod_0" type="insertion">
+                        <source href="#"/>
+                        <destination href="#ins_1"/>
+                        <new>
+                            <nakn:text>((in base alle indicazioni tecniche fornite, con decreto direttoriale, dagli uffici competenti del Ministero dello sviluppo economico e del Ministero del lavoro e delle politiche sociali, per i profili di rispettiva competenza))</nakn:text>
+                        </new>
+                    </textualMod>
+                </passiveModifications>
+            </analysis>
+            <references source="">
+                <original eId="ro1" href="/akn/it/act/DECRETO_DEL_PRESIDENTE_DELLA_REPUBBLICA/stato/2001-10-22/462/!main" showAs=""/>
+                <passiveRef eId="rp1" href="/akn/it/act/DECRETO-LEGGE/stato/2019-12-30/162/!main" showAs=""/>
+                <passiveRef eId="rp2" href="/akn/it/act/LEGGE/stato/2020-02-28/8/!main" showAs=""/>
+            </references>
+            <proprietary source="">
+                <rdf:RDF>
+                    <rdf:Description rdf:about="na:id/2002/01/08/001G0521/CONSOLIDATED/20200301">
+                        <rdf:type rdf:resource="eli:LegalResource"/>
+                        <eli:title xml:lang="it">Regolamento di semplificazione del procedimento per la denuncia di installazioni e dispositivi di protezione contro le scariche atmosferiche, di dispositivi di messa a terra di impianti elettrici e di impianti elettrici pericolosi. </eli:title>
+                        <eli:uri_schema>http://www.normattiva.it/eli/id/{yyyy}/{mm}/{dd}/{codiceRedazionale}/{tipoVersione}</eli:uri_schema>
+                        <eli:id_local>001G0521</eli:id_local>
+                        <eli:type_document rdf:resource="gu:tables/resource-type#DECRETO DEL PRESIDENTE DELLA REPUBBLICA"/>
+                        <eli:date_document rdf:datatype="xsd:date">2001-10-22</eli:date_document>
+                        <eli:version rdf:resource="gu:tables/versions#ORIGINAL"/>
+                    </rdf:Description>
+                    <rdf:Description rdf:about="na:id/2002/01/08/001G0521/CONSOLIDATED/20200301/ita">
+                        <rdf:type rdf:resource="eli:LegalExpression"/>
+                        <eli:realizes rdf:resource="na:id/2002/01/08/001G0521/CONSOLIDATED/20200301"/>
+                        <eli:is_embodied_by rdf:resource="na:id/2002/01/08/001G0521/CONSOLIDATED/20200301/ita/akn"/>
+                        <eli:language rdf:resource="http://publications.europa.eu/resource/authority/language/ITA"/>
+                        <eli:publisher_agent rdf:resource="http://www.ipzs.it"/>
+                    </rdf:Description>
+                    <rdf:Description rdf:about="na:id/2002/01/08/001G0521/CONSOLIDATED/20200301/ita/akn">
+                        <rdf:type rdf:resource="eli:format"/>
+                        <eli:format rdf:resource="http://www.iana.org/assignments/media-types/xml"/>
+                    </rdf:Description>
+                </rdf:RDF>
+            </proprietary>
+        </meta>
+        <preface>
+            <p>
+                <docType>DECRETO DEL PRESIDENTE DELLA REPUBBLICA</docType>
+                <docDate date="2001-10-22">22 ottobre 2001</docDate>
+                <docNumber>462</docNumber>
+                <docTitle>Regolamento di semplificazione del procedimento per la denuncia di installazioni e dispositivi di protezione contro le scariche atmosferiche, di dispositivi di messa a terra di impianti elettrici e di impianti elettrici pericolosi.
+</docTitle>
+            </p>
+        </preface>
+        <preamble>
+            <formula name="formulaInizialePreambolo">
+                <p>IL PRESIDENTE DELLA REPUBBLICA</p>
+            </formula>
+            <citations eId="cits_1">
+                <citation eId="cits_1__cit_1">
+                    <p>Visto l'<ref eId="ref_1" href="/akn/it/act/costituzione/stato/1947-12-27/const/!main#art_87-com5">articolo 87, comma quinto, della Costituzione</ref>;</p>
+                </citation>
+            </citations>
+            <citations eId="cits_2">
+                <citation eId="cits_2__cit_1">
+                    <p>Visto l'<ref eId="ref_2" href="/akn/it/act/legge/stato/1988-08-23/400/!main#art_17-com2">articolo 17, comma 2, della legge 23 agosto 1988, n. 400</ref>;</p>
+                </citation>
+            </citations>
+            <citations eId="cits_3">
+                <citation eId="cits_3__cit_1">
+                    <p>Vista la <ref eId="ref_3" href="/akn/it/act/legge/stato/1997-03-15/59/!main">legge 15 marzo 1997, n. 59</ref>, allegato 1, n. 11;</p>
+                </citation>
+            </citations>
+            <citations eId="cits_4">
+                <citation eId="cits_4__cit_1">
+                    <p>Visto il <ref eId="ref_4" href="/akn/it/act/decretoDelPresidenteDellaRepubblica/stato/1955-04-27/547/!main">decreto del Presidente della Repubblica del 27 aprile 1955, n. 547</ref>, recante norme per la prevenzione degli infortuni sul lavoro;</p>
+                </citation>
+            </citations>
+            <citations eId="cits_5">
+                <citation eId="cits_5__cit_1">
+                    <p>Visto il decreto del Ministro per il lavoro e la previdenza sociale in data 12 settembre 1959 recante attribuzione dei compiti e determinazione delle modalita' e delle documentazioni relative all'esercizio delle verifiche e dei controlli previste dalle norme di prevenzione degli infortuni sul lavoro, pubblicato nel supplemento ordinario alla Gazzetta Ufficiale n. 299 dell'11 dicembre 1959;</p>
+                </citation>
+            </citations>
+            <citations eId="cits_6">
+                <citation eId="cits_6__cit_1">
+                    <p>Vista la normativa tecnica comunitaria UNI CEI;</p>
+                </citation>
+            </citations>
+            <citations eId="cits_7">
+                <citation eId="cits_7__cit_1">
+                    <p>Visto il <ref eId="ref_5" href="/akn/it/act/decretoDelPresidenteDellaRepubblica/stato/1998-10-20/447/!main">decreto del Presidente della Repubblica 20 ottobre 1998, n. 447</ref>, concernente regolamento recante norme di semplificazione dei procedimenti di autorizzazione per la realizzazione, l'ampliamento, la ristrutturazione e la riconversione di impianti produttivi, per l'esecuzione di opere interne ai fabbricati, nonche' per la determinazione delle aree destinate agli insediamenti produttivi, a norma dell'articolo 20, com-ma 8, della <ref eId="ref_6" href="/akn/it/act/legge/stato/1997-03-15/59/!main">legge 15 marzo 1997, n. 59</ref>;</p>
+                </citation>
+            </citations>
+            <citations eId="cits_8">
+                <citation eId="cits_8__cit_1">
+                    <p>Vista la preliminare deliberazione del Consiglio dei Ministri, adottata nella riunione del 2 marzo 2001;</p>
+                </citation>
+            </citations>
+            <p>Udito il parere del Consiglio di Stato, espresso dalla Sezione consultiva per gli atti normativi nell'adunanza del 4 giugno 2001;</p>
+            <p>Sentita la Conferenza Stato-regioni il 22 marzo 2001;</p>
+            <p>Acquisito il parere della Camera dei deputati - XI commissione, e del Senato della Repubblica - XI commissione, approvati nelle sedute, rispettivamente, del 26 luglio 2001 e del 1 agosto 2001;</p>
+            <citations eId="cits_9">
+                <citation eId="cits_9__cit_1">
+                    <p>Vista la deliberazione del Consiglio dei Ministri, adottata nella riunione del 12 ottobre 2001;</p>
+                </citation>
+            </citations>
+            <p>Sulla proposta del Presidente del Consiglio dei Ministri e del Ministro per la funzione pubblica, di concerto con i Ministri delle attivita' produttive, del lavoro e delle politiche sociali e della salute;</p>
+            <formula name="formulaFinalePreambolo">
+                <p>Emana il seguente regolamento:</p>
+            </formula>
+        </preamble>
+        <body>
+            <chapter eId="chp_I">
+                <num>Capo I</num>
+                <heading>Disposizioni generali</heading>
+                <article eId="art_1">
+                    <num>Art. 1.</num>
+                    <heading> Ambito di applicazione</heading>
+                    <paragraph eId="art_1__para_1">
+                        <num>1.</num>
+                        <content>
+                            <p>Il presente regolamento disciplina i procedimenti relativi alle installazioni ed ai dispositivi di protezione contro le scariche atmosferiche, agli impianti elettrici di messa a terra e agli impianti elettrici in luoghi con pericolo di esplosione collocati nei luoghi di lavoro.
+</p>
+                        </content>
+                    </paragraph>
+                    <paragraph eId="art_1__para_2">
+                        <num>2.</num>
+                        <content>
+                            <p>Con uno o piu' decreti del Ministero della salute, di concerto con il Ministero del lavoro e delle politiche sociali ed il Ministero delle attivita' produttive, sono dettate disposizioni volte ad adeguare le vigenti prescrizioni in materia di realizzazione degli impianti di cui al comma 1. In particolare, tali decreti individuano i dispositivi di protezione contro le scariche atmosferiche, gli impianti elettrici di messa a terra e gli impianti relativi alle installazioni elettriche in luoghi con pericolo di esplosione.
+</p>
+                        </content>
+                    </paragraph>
+                    <section>
+                        <content>
+                            <p>
+                                <authorialNote eId="authorialNote_1" placement="bottom">
+                                    <p> Avvertenza:
+ Il testo delle note qui pubblicato e' stato redatto dall'amministrazione competente per materia, ai sensi dell'art. 10, comma 3, del testo unico delle disposizioni sulla promulgazione delle leggi, sull'emanazione dei decreti del Presidente della Repubblica e sulle pubblicazioni ufficiali della Repubblica italiana, approvato con <ref eId="content__ref_7" href="/akn/it/act/decretoDelPresidenteDellaRepubblica/stato/1985-12-28/1092/!main">D.P.R. 28 dicembre 1985, n. 1092</ref>, al solo fine di facilitare la lettura delle disposizioni di legge alle quali e' operato il rinvio. Restano invariati il valore e l'efficacia degli atti legislativi qui trascritti.
+ Note al preambolo:
+ - L'<ref eId="content__ref_8" href="/akn/it/act/costituzione/stato/1947-12-27/const/!main#art_87-com5">art. 87, quinto comma della Costituzione</ref> conferisce al Presidente della Repubblica il potere di promulgare le leggi e di emanare i decreti aventi valore di legge ed i regolamenti.
+ - Si riporta l'<ref eId="content__ref_9" href="/akn/it/act/legge/stato/1988-08-23/400/!main#art_17-com2">art. 17, comma 2, della legge 23 agosto 1988, n. 400</ref> (Disciplina dell'attivita' di Governo e ordinamento della Presidenza del Consiglio dei Ministri):
+ "2. - Con decreto del Presidente della Repubblica, previa deliberazione del Consiglio dei Ministri, sentito il Consiglio di Stato, sono emanati i regolamenti per la disciplina delle materie, non coperte da riserva assoluta di legge prevista dalla Costituzione, per le quali le leggi della Repubblica, autorizzando l'esercizio della potesta' regolamentare del Governo, determinano le norme generali regolatrici della materia e dispongono l'abrogazione delle norme vigenti, con effetto dall'entrata in vigore delle norme regolamentari".
+ - Si riporta il testo dell'<ref eId="content__ref_10" href="/akn/it/act/legge/stato/1997-03-15/59/!main#art_20">art. 20 della legge 15 marzo 1997, n. 59</ref> (Delega al Governo per il conferimento di funzioni e compiti alle regioni ed enti locali, per la riforma della pubblica amministrazione e per la semplificazione amministrativa):
+ "Art. 20. - 1. Il Governo, entro il 31 gennaio di ogni anno, presenta al Parlamento un disegno di legge per la delegificazione di norme concernenti procedimenti amministrativi, anche coninvolgenti amministrazioni centrali, locali o autonome, indicando i criteri per l'esercizio della potesta' regolamentare nonche' i procedimenti oggetto della disciplina, salvo quanto previsto dalla lettera a) del comma 5. In allegato al disegno di legge e' presentata una relazione sullo stato di attuazione della semplificazione dei procedimenti amministrativi.
+ 2. Nelle materie di cui all'<ref eId="content__ref_11" href="/akn/it/act/costituzione/stato/1947-12-27/const/!main#art_117-com1">art. 117, primo comma, della Costituzione</ref>, i regolamenti di delegificazione trovano applicazione solo fino a quando la regione non provveda a disciplinare autonomamente la materia medesima.
+ Resta fermo quanto previsto dall'art. 2, comma 2, della presente legge e dall'art. 7 del testo unico delle leggi sull'ordinamento degli enti locali, approvato con <ref eId="content__ref_12" href="/akn/it/act/decretoLegislativo/stato/2000-08-18/267/!main">decreto legislativo 18 agosto 2000, n. 267</ref>.
+ 3. I regolamenti sono emanati con decreto del Presidente della Repubblica, previa deliberazione del Consiglio dei Ministri, su proposta del Presidente del Consiglio dei Ministri - Dipartimento della funzione pubblica, di concerto con il Ministro competente, previa acquisizione del parere delle competenti Commissioni parlamentari e del Consiglio di Stato. A tal fine la Presidenza del Consiglio dei Ministri, ove necessario, promuove, anche su richiesta del Ministro competente, riunioni tra le amministrazioni interessate. Decorsi trenta giorni dalla richiesta di parere delle commissioni, i regolamenti possono essere comunque emanati.
+ 4. I regolamenti entrano in vigore il quindicesimo giorno successivo alla data della loro pubblicazione nella Gazzetta Ufficiale della Repubblica italiana. Con effetto dalla stessa data sono abrogate le norme, anche di legge, regolatrici dei procedimenti.
+ 5. I regolamenti si conformano ai seguenti criteri e principi:
+ a) semplificazione dei procedimenti amministrativi, e di quelli che agli stessi risultano strettamente connessi o strumentali, in modo da ridurre il numero delle fasi procedimentali e delle amministrazioni intervenienti, anche riordinando le competenze degli uffici, accorpando le funzioni per settori omogenei, sopprimendo gli organi che risultino superflui e costituendo centri interservizi dove raggruppare competenze diverse ma confluenti in una unica procedura;
+ b) riduzione dei termini per la conclusione dei procedimenti e uniformazione dei tempi di conclusione previsti per procedimenti tra loro analoghi;
+ c) regolazione uniforme dei procedimenti dello stesso tipo che si svolgono presso diverse amministrazioni o presso diversi uffici della medesima amministrazione;
+ d) riduzione del numero di procedimenti amministrativi e accorpamento dei procedimenti che si riferiscono alla medesima attivita', anche riunendo in un unica fonte regolamentare, ove cio' corrisponda ad esigenze di semplificazione e conoscibilita' normativa, disposizioni provenienti da fonti di rango diverso, ovvero che pretendono particolari procedure, fermo restando l'obbligo di porre in essere le procedure stesse;
+ e) semplificazione e accelerazione delle procedure di spesa e contabili, anche mediante adozione ed estensione delle fasi di integrazione dell'efficacia degli atti, di disposizioni analoghe a quelle di cui all'<ref eId="content__ref_13" href="/akn/it/act/decretoLegislativo/stato/1993-02-03/29/!main#art_51-com2">art. 51, comma 2, del decreto legislativo 3 febbraio 1993, n. 29</ref>, e successive modificazioni;
+ f) trasferimento ad organi monocratici o ai dirigenti amministrativi anche decisionali, che non richiedano, in ragione della loro specificita', l'esercizio in forma collegiale, e sostituzione degli organi collegiali con conferenze di servizi o con interventi, nei relativi procedimenti, dei soggetti portatori di interessi diffusi;
+ g) individuazione delle responsabilita' e delle procedure di verifica e controllo;
+ g-bis) soppressione dei procedimenti che risultino non piu' corrispondenti alle finalita' e agli obiettivi fondamentali definiti dalla legislazione di settore o che risultino in contrasto con i principi generali dell'ordinamento giuridico nazionale o comunitario;
+ g-ter) soppressione dei procedimenti che comportino, per l'amministrazione e per i cittadini, costi piu' elevati dei benefici conseguibili, anche attraverso la sostituzione dell'attivita' amministrativa diretta con forme di autoregolamentazione da parte degli interessati;
+ g-quater) adeguamento della disciplina sostanziale e procedimentale dell'attivita' e degli atti amministrativi ai principi della normativa comunitaria, anche sostituendo al regime concessorio quello autorizzatorio;
+ g-quinquies) soppressione dei procedimenti che derogano alla normativa procedimentale di carattere generale, qualora non sussistano piu' le ragioni che giustifichino una difforme disciplina settoriale;
+ g-sexies) regolazione, ove possibile, di tutti gli aspetti organizzativi e di tutte la fasi del procedimento;
+ g-septies) adeguamento delle procedure alle nuove tecnologie informatiche.
+ 5-bis. I riferimenti a testi normativi contenuti negli elenchi di procedimenti da semplificare di cui all'allegato 1 alla presente legge e alle leggi di cui al comma 1 del presente articolo si intendono estesi ai successivi provvedimenti di modificazione.
+ 6. I servizi di controllo interno compiono accertamenti sugli effetti prodotti dalle norme contenute nei regolamenti di semplificazione e di accelerazione dei procedimenti amministrativi e possono formulare osservazioni e proporre suggerimenti per la modifica delle norme stesse e per il miglioramento dell'azione amministrativa.
+ 7. Le regioni a statuto ordinario regolano le materie disciplinate dai commi da 1 a 6 e dalle leggi annuali di semplificazione nel rispetto dei principi desumibili dalle disposizioni in essi contenute, che costituiscono principi generali sull'ordinamento giuridico. Tali disposizioni operano direttamente nei riguardi delle regioni fino a quando esse non avranno legiferato in materia. Entro due anni dalla data di entrata in vigore della presente legge, le regioni a statuto speciale e le province autonome di Trento e di Bolzano provvedono ad adeguare i rispettivi ordinamenti alle norme fondamentali contenute nella legge medesima.
+ 8. In sede di prima attuazione della presente legge e nel rispetto dei principi, criteri e modalita' di cui al presente articolo, quali norme generali regolatrici, sono emanati appositi regolamenti ai sensi e per gli effetti dell'art. 17, comma 2, della legge 23 agosto, n. 400, per disciplinare i procedimenti di cui all'allegato 1 alla presente legge, nonche' le seguenti materie:
+ a) sviluppo e programmazione del sistema universitario, di cui alla <ref eId="content__ref_14" href="/akn/it/act/legge/stato/1990-08-07/254/!main">legge 7 agosto 1990, n. 254</ref>, e successive modificazioni, nonche' valutazione del medesimo sistema, di cui alla <ref eId="content__ref_15" href="/akn/it/act/legge/stato/1993-12-24/537/!main">legge 24 dicembre 1993, n. 537</ref>, e successive modificazioni;
+ b) composizione e funzioni degli organismi collegiali nazionali e locali di rappresentanza e coordinamento del sistema universitario, prevedendo altresi' l'istituzione di un Consiglio nazionale degli studenti, eletto dai medesimi, con compiti consultivi e di proposta;
+ c) interventi per il diritto allo studio e contributi universitari. Le norme sono finalizzate a garantire l'accesso agli studi universitari agli studenti capaci e meritevoli privi di mezzi, a ridurre il tasso di abbandono degli studi, a determinare percentuali massime dell'ammontare complessivo della contribuzione a carico degli studenti in rapporto al finanziamento ordinario dello Stato per le universita', graduando la contribuzione stessa, secondo criteri di equita', solidarieta' e progressivita' in relazione alle condizioni economiche del nucleo familiare, nonche' a definire parametri e metodologie adeguati per la valutazione delle effettive condizioni economiche dei predetti nuclei. Le norme di cui alla presente lettera sono soggette a revisione biennale, sentite le competenti commissioni parlamentari;
+ d) procedure per il conseguimento del titolo di dottore di ricerca, di cui all'<ref eId="content__ref_16" href="/akn/it/act/decretoDelPresidenteDellaRepubblica/stato/1980-07-11/382/!main#art_73">art. 73 del decreto del Presidente della Repubblica 11 luglio 1980, n. 382</ref>, e procedimento di approvazione degli atti dei concorsi per ricercatore in deroga all'<ref eId="content__ref_17" href="/akn/it/act/legge/stato/1993-12-24/537/!main#art_5-com9">art. 5, comma 9, della legge 24 dicembre 1993, n. 537</ref>;
+ e) procedure per l'accettazione da parte delle universita' di eredita', donazioni e legati, prescindendo da ogni autorizzazione preventiva, ministeriale o prefettizia.
+ 9. I regolamenti di cui al comma 8, lettere a), b) e c), sono emanati previo parere delle commissioni parlamentari competenti per materia.
+ 10. In attesa dell'entrata in vigore delle norme di cui al comma 8, lettera c), il decreto del Presidente del Consiglio dei Ministri, previsto dall'<ref eId="content__ref_18" href="/akn/it/act/legge/stato/1991-12-02/390/!main#art_4">art. 4 della legge 2 dicembre 1991, n. 390</ref>, e' emanato anche nelle more della Costituzione della Consulta nazionale per il diritto agli studi universitari di cui all'art. 6 della medesima legge.
+ 11. Con il disegno di legge di cui al comma 1, il Governo propone annualmente al Parlamento le norme di delega ovvero di legificazione necessarie alla compilazione di testi unici legislativi o regolamentari, con particolare riferimento alle materie interessate dalla attuazione della presente legge, il Governo e' delegato ad emanare, entro il termine di sei mesi decorrenti dalla data di entrata in vigore dei decreti legislativi di cui all'art. 4, norme per la delegificazione delle materie di cui all'art. 4, comma 4, lettera c), non coperte da riserva assoluta di legge, nonche' testi unici delle leggi che disciplinano i settori di cui al medesimo art. 4, comma 4, lettera c) anche attraverso le necessarie modifiche internazionali o abrogazioni di norme, secondo i criteri previsti dagli articoli 14 e 17 del presente articolo".
+ - Si riporta il n. 11 dell'allegato 1 della citata <ref eId="content__ref_19" href="/akn/it/act/legge/stato/1997-03-15/59/!main">legge 15 marzo 1997, n. 59</ref>:
+ "11. - Procedimento per la denuncia di installazioni e dispositivi di protezione contro le scariche atmosferiche, di dispositivi di messa a terra di impianti elettrici, di impianti elettrici pericolosi:
+ <ref eId="content__ref_20" href="/akn/it/act/decretoDelPresidenteDellaRepubblica/stato/1955-04-27/547/!main#art_38">decreto del Presidente della Repubblica 27 aprile 1955, n. 547, articoli 38</ref>, <ref eId="content__ref_21" href="/akn/it/act/decretoDelPresidenteDellaRepubblica/stato/1955-04-27/547/!main#art_39">39</ref>, <ref eId="content__ref_22" href="/akn/it/act/decretoDelPresidenteDellaRepubblica/stato/1955-04-27/547/!main#art_40">40</ref>, <ref eId="content__ref_23" href="/akn/it/act/decretoDelPresidenteDellaRepubblica/stato/1955-04-27/547/!main#art_336">336</ref> e <ref eId="content__ref_24" href="/akn/it/act/decretoDelPresidenteDellaRepubblica/stato/1955-04-27/547/!main#art_338">338</ref>;
+ regolamento approvato con <ref eId="content__ref_25" href="/akn/it/act/decretoDelPresidenteDellaRepubblica/stato/1982-07-29/577/!main">decreto del Presidente della Repubblica 29 luglio 1982, n. 577</ref>;
+ <ref eId="content__ref_26" href="/akn/it/act/legge/stato/1990-03-05/46/!main">legge 5 marzo 1990, n. 46</ref>;
+ <ref eId="content__ref_27" href="/akn/it/act/decretoDelPresidenteDellaRepubblica/stato/1991-12-06/447/!main">decreto del Presidente della Repubblica 6 dicembre 1991, n. 447</ref>;".
+ - Il decreto ministeriale 12 settembre 1959, pubblicato nel supplemento ordinario alla Gazzetta Ufficiale n. 299 dell'11 dicembre 1959, reca: "Attribuzione dei compiti e determinazione delle modalita' e delle documentazioni relative all'esercizio delle verifiche e dei controlli previste dalle norme di prevenzione degli infortuni sul lavoro".
+ - Il <ref eId="content__ref_28" href="/akn/it/act/decretoDelPresidenteDellaRepubblica/stato/1998-10-20/447/!main">decreto del Presidente della Repubblica del 20 ottobre 1998, n. 447</ref> "Regolamento recante norme di semplificazione dei procedimenti di autorizzazione per la realizzazione, l'ampliamento, la ristrutturazione e la riconversione di impianti produttivi, per l'esecuzione di opere interne ai fabbricati, nonche' per la determinazione delle aree destinate agli insediamenti produttivi, a norma dell'<ref eId="content__ref_29" href="/akn/it/act/legge/stato/1997-03-15/59/!main#art_20-com8">art. 20, comma 8, della legge 15 marzo 1997, n. 59</ref>".
+</p>
+                                </authorialNote>
+                            </p>
+                        </content>
+                    </section>
+                </article>
+            </chapter>
+            <chapter eId="chp_II">
+                <num>Capo II</num>
+                <heading>Impianti elettrici di messa a terra e dispositivi di protezione contro le scariche atmosferiche</heading>
+                <article eId="art_2">
+                    <num>Art. 2.</num>
+                    <heading> Messa in esercizio e omologazione dell'impianto</heading>
+                    <paragraph eId="art_2__para_1">
+                        <num>1.</num>
+                        <content>
+                            <p>La messa in esercizio degli impianti elettrici di messa a terra e dei dispositivi di protezione contro le scariche atmosferiche non puo' essere effettuata prima della verifica eseguita dall'installatore che rilascia la dichiarazione di conformita' ai sensi della normativa vigente. La dichiarazione di conformita' equivale a tutti gli effetti ad omologazione dell'impianto.
+</p>
+                        </content>
+                    </paragraph>
+                    <paragraph eId="art_2__para_2">
+                        <num>2.</num>
+                        <content>
+                            <p>Entro trenta giorni dalla messa in esercizio dell'impianto, il datore di lavoro invia la dichiarazione di conformita' all'ISPESL ed all'ASL o all'ARPA territorialmente competenti.
+</p>
+                        </content>
+                    </paragraph>
+                    <paragraph eId="art_2__para_3">
+                        <num>3.</num>
+                        <content>
+                            <p>Nei comuni singoli o associati ove e' stato attivato lo sportello unico per le attivita' produttive la dichiarazione di cui al comma 2 e' presentata allo stesso.
+</p>
+                        </content>
+                    </paragraph>
+                </article>
+                <article eId="art_3">
+                    <num>Art. 3.</num>
+                    <heading> Verifiche a campione</heading>
+                    <paragraph eId="art_3__para_1">
+                        <num>1.</num>
+                        <content>
+                            <p>L'ISPESL effettua a campione la prima verifica sulla conformita' alla normativa vigente degli impianti di protezione contro le scariche atmosferiche ed i dispositivi di messa a terra degli impianti elettrici e trasmette le relative risultanze all'ASL o ARPA.
+</p>
+                        </content>
+                    </paragraph>
+                    <paragraph eId="art_3__para_2">
+                        <num>2.</num>
+                        <list>
+                            <intro eId="art_3__para_2__intro_1">
+                                <p>Le verifiche a campione sono stabilite annualmente dall'ISPESL, d'intesa con le singole regioni sulla base dei seguenti criteri:
+ </p>
+                            </intro>
+                            <point eId="art_3__para_2.__point_a">
+                                <num>a)</num>
+                                <content>
+                                    <p>localizzazione dell'impianto in relazione alle caratteristiche urbanistiche ed ambientali del luogo in cui e' situato l'impianto;
+</p>
+                                </content>
+                            </point>
+                            <point eId="art_3__para_2.__point_b">
+                                <num>b)</num>
+                                <content>
+                                    <p>tipo di impianto soggetto a verifica;
+</p>
+                                </content>
+                            </point>
+                            <point eId="art_3__para_2.__point_c">
+                                <num>c)</num>
+                                <content>
+                                    <p>dimensione dell'impianto.
+</p>
+                                </content>
+                            </point>
+                        </list>
+                    </paragraph>
+                    <paragraph eId="art_3__para_3">
+                        <num>3.</num>
+                        <content>
+                            <p>Le verifiche sono onerose e le spese per la loro effettuazione sono a carico del datore di lavoro.
+</p>
+                        </content>
+                    </paragraph>
+                </article>
+                <article eId="art_4">
+                    <num>Art. 4.</num>
+                    <heading> Verifiche periodiche - Soggetti abilitati</heading>
+                    <paragraph eId="art_4__para_1">
+                        <num>1.</num>
+                        <content>
+                            <p>Il datore di lavoro e' tenuto ad effettuare regolari manutenzioni dell'impianto, nonche' a far sottoporre lo stesso a verifica periodica ogni cinque anni, ad esclusione di quelli installati in cantieri, in locali adibiti ad uso medico e negli ambienti a maggior rischio in caso di incendio per i quali la periodicita' e' biennale.
+</p>
+                        </content>
+                    </paragraph>
+                    <paragraph eId="art_4__para_2">
+                        <num>2.</num>
+                        <content>
+                            <p>Per l'effettuazione della verifica, il datore di lavoro si rivolge all'ASL o all'ARPA o ad eventuali organismi individuati dal Ministero delle attivita' produttive, sulla base di criteri stabiliti dalla normativa tecnica europea UNI CEI.
+</p>
+                        </content>
+                    </paragraph>
+                    <paragraph eId="art_4__para_3">
+                        <num>3.</num>
+                        <content>
+                            <p>Il soggetto che ha eseguito la verifica periodica rilascia il relativo verbale al datore di lavoro che deve conservarlo ed esibirlo a richiesta degli organi di vigilanza.
+</p>
+                        </content>
+                    </paragraph>
+                    <paragraph eId="art_4__para_4">
+                        <num>4.</num>
+                        <content>
+                            <p>Le verifiche sono onerose e le spese per la loro effettuazione sono a carico del datore di lavoro.
+</p>
+                        </content>
+                    </paragraph>
+                </article>
+            </chapter>
+            <chapter eId="chp_III">
+                <num>Capo III</num>
+                <heading>Impianti in luoghi con pericolo di esplosione</heading>
+                <article eId="art_5">
+                    <num>Art. 5.</num>
+                    <heading> Messa in esercizio e omologazione</heading>
+                    <paragraph eId="art_5__para_1">
+                        <num>1.</num>
+                        <content>
+                            <p>La messa in esercizio degli impianti in luoghi con pericolo di esplosione non puo' essere effettuata prima della verifica di conformita' rilasciata al datore di lavoro ai sensi del comma 2.
+</p>
+                        </content>
+                    </paragraph>
+                    <paragraph eId="art_5__para_2">
+                        <num>2.</num>
+                        <content>
+                            <p>Tale verifica e' effettuata dallo stesso installatore dell'impianto, il quale rilascia la dichiarazione di conformita' ai sensi della normativa vigente.
+</p>
+                        </content>
+                    </paragraph>
+                    <paragraph eId="art_5__para_3">
+                        <num>3.</num>
+                        <content>
+                            <p>Entro trenta giorni dalla messa in esercizio dell'impianto, il datore di lavoro invia la dichiarazione di conformita' all'ASL o all'ARPA territorialmente competenti.
+</p>
+                        </content>
+                    </paragraph>
+                    <paragraph eId="art_5__para_4">
+                        <num>4.</num>
+                        <content>
+                            <p>L'omologazione e' effettuata dalle ASL o dall'ARPA competenti per territorio, che effettuano la prima verifica sulla conformita' alla normativa vigente di tutti gli impianti denunciati.
+</p>
+                        </content>
+                    </paragraph>
+                    <paragraph eId="art_5__para_5">
+                        <num>5.</num>
+                        <content>
+                            <p>Nei comuni singoli o associati ove e' stato attivato lo sportello unico per le attivita' produttive la dichiarazione di cui al comma 3 e' presentata allo sportello.
+</p>
+                        </content>
+                    </paragraph>
+                    <paragraph eId="art_5__para_6">
+                        <num>6.</num>
+                        <content>
+                            <p>Le verifiche sono onerose e le spese per la loro effettuazione sono a carico del datore di lavoro.
+</p>
+                        </content>
+                    </paragraph>
+                </article>
+                <article eId="art_6">
+                    <num>Art. 6.</num>
+                    <heading> Verifiche periodiche - Soggetti abilitati</heading>
+                    <paragraph eId="art_6__para_1">
+                        <num>1.</num>
+                        <content>
+                            <p>Il datore di lavoro e' tenuto ad effettuare regolari manutenzioni dell'impianto, nonche' a far sottoporre lo stesso a verifica periodica ogni due anni.
+</p>
+                        </content>
+                    </paragraph>
+                    <paragraph eId="art_6__para_2">
+                        <num>2.</num>
+                        <content>
+                            <p>Per l'effettuazione della verifica, il datore di lavoro si rivolge all'ASL o all'ARPA od ad eventuali organismi individuati dal Ministero delle attivita' produttive, sulla base di criteri stabiliti dalla normativa tecnica europea UNI CEI.
+</p>
+                        </content>
+                    </paragraph>
+                    <paragraph eId="art_6__para_3">
+                        <num>3.</num>
+                        <content>
+                            <p>Il soggetto che ha eseguito la verifica periodica rilascia il relativo verbale al datore di lavoro che deve conservarlo ed esibirlo a richiesta degli organi di vigilanza.
+</p>
+                        </content>
+                    </paragraph>
+                    <paragraph eId="art_6__para_4">
+                        <num>4.</num>
+                        <content>
+                            <p>Le verifiche sono onerose e le spese per la loro effettuazione sono a carico del datore di lavoro.
+</p>
+                        </content>
+                    </paragraph>
+                </article>
+            </chapter>
+            <chapter eId="chp_IV">
+                <num>Capo IV</num>
+                <heading>Disposizioni comuni ai capi precedenti</heading>
+                <article eId="art_7">
+                    <num>Art. 7.</num>
+                    <heading> Verifiche straordinarie</heading>
+                    <paragraph eId="art_7__para_1">
+                        <num>1.</num>
+                        <content>
+                            <p>Le verifiche straordinarie sono effettuate dall'ASL o dall'ARPA o dagli organismi individuati dal Ministero delle attivita' produttive, sulla base di criteri stabiliti dalla normativa europea UNI CEI. 
+</p>
+                        </content>
+                    </paragraph>
+                    <paragraph eId="art_7__para_2">
+                        <num>2.</num>
+                        <list>
+                            <intro eId="art_7__para_2__intro_1">
+                                <p>Le verifiche straordinarie sono, comunque, effettuate nei casi di: 
+ </p>
+                            </intro>
+                            <point eId="art_7__para_2.__point_a">
+                                <num>a)</num>
+                                <content>
+                                    <p>esito negativo della verifica periodica; 
+</p>
+                                </content>
+                            </point>
+                            <point eId="art_7__para_2.__point_b">
+                                <num>b)</num>
+                                <content>
+                                    <p>modifica sostanziale dell'impianto; 
+</p>
+                                </content>
+                            </point>
+                            <point eId="art_7__para_2.__point_c">
+                                <num>c)</num>
+                                <content>
+                                    <p>richiesta del datore del lavoro. 
+</p>
+                                </content>
+                            </point>
+                        </list>
+                    </paragraph>
+                </article>
+                <article eId="art_7-bis">
+                    <num>Art. 7-bis.</num>
+                    <heading>(Banca dati informatizzata, comunicazione all'INAIL e tariffe)</heading>
+                    <paragraph eId="art_7-bis__para_1">
+                        <num>1.</num>
+                        <content>
+                            <p>Per digitalizzare la trasmissione dei dati delle verifiche, l'INAIL predispone la banca dati informatizzata delle verifiche <ins eId="ins_1">((in base alle indicazioni tecniche fornite, con decreto direttoriale, dagli uffici competenti del Ministero dello sviluppo economico e del Ministero del lavoro e delle politiche sociali, per i profili di rispettiva competenza))</ins>. 
+</p>
+                        </content>
+                    </paragraph>
+                    <paragraph eId="art_7-bis__para_2">
+                        <num>2.</num>
+                        <content>
+                            <p>Il datore di lavoro comunica tempestivamente all'INAIL, per via informatica, il nominativo dell'organismo che ha incaricato di effettuare le verifiche di cui all'articolo 4, comma 1, e all'articolo 6, comma 1. 
+</p>
+                        </content>
+                    </paragraph>
+                    <paragraph eId="art_7-bis__para_3">
+                        <num>3.</num>
+                        <content>
+                            <p>Per le verifiche di cui all'articolo 4, comma 1, e all'articolo 6, comma 1, l'organismo che e' stato incaricato della verifica dal datore di lavoro corrisponde all'INAIL una quota, pari al 5 per cento della tariffa definita dal decreto di cui al comma 4, destinata a coprire i costi legati alla gestione ed al mantenimento della banca dati informatizzata delle verifiche. 
+</p>
+                        </content>
+                    </paragraph>
+                    <paragraph eId="art_7-bis__para_4">
+                        <num>4.</num>
+                        <content>
+                            <p>Le tariffe per gli obblighi di cui all'articolo 4, comma 4, e all'articolo 6, comma 4, applicate dall'organismo che e' stato incaricato della verifica dal datore di lavoro, sono individuate dal decreto del presidente dell'Istituto superiore per la prevenzione e la sicurezza del lavoro (ISPESL) 7 luglio 2005, pubblicato sul supplemento ordinario n. 125 alla Gazzetta Ufficiale n. 165 del 18 luglio 2005, e successive modificazioni. 
+</p>
+                        </content>
+                    </paragraph>
+                </article>
+                <article eId="art_8">
+                    <num>Art. 8.</num>
+                    <heading> Variazioni relative agli impianti</heading>
+                    <paragraph eId="art_8__para_1">
+                        <num>1.</num>
+                        <content>
+                            <p>Il datore di lavoro comunica tempestivamente all'ufficio competente per territorio dell'ISPESL e alle ASL o alle ARPA competenti per territorio la cessazione dell'esercizio, le modifiche sostanziali preponderanti e il trasferimento o spostamento degli impianti.
+</p>
+                        </content>
+                    </paragraph>
+                </article>
+            </chapter>
+            <chapter eId="chp_V">
+                <num>Capo V</num>
+                <heading>Disposizioni transitorie e finali</heading>
+                <article eId="art_9">
+                    <num>Art. 9.</num>
+                    <heading> Abrogazioni</heading>
+                    <paragraph eId="art_9__para_1">
+                        <num>1.</num>
+                        <list>
+                            <intro eId="art_9__para_1__intro_1">
+                                <p>Sono abrogati:
+ </p>
+                            </intro>
+                            <point eId="art_9__para_1.__point_a">
+                                <num>a)</num>
+                                <content>
+                                    <p>gli <ref eId="content__ref_30" href="/akn/it/act/decretoDelPresidenteDellaRepubblica/stato/1955-04-27/547/!main#art_40">articoli 40</ref> e <ref eId="content__ref_31" href="/akn/it/act/decretoDelPresidenteDellaRepubblica/stato/1955-04-27/547/!main#art_328">328 del decreto del Presidente della Repubblica 27 aprile 1955, n. 547</ref>;
+</p>
+                                </content>
+                            </point>
+                            <point eId="art_9__para_1.__point_b">
+                                <num>b)</num>
+                                <content>
+                                    <p>gli articoli 2, 3 e 4 del decreto del Ministro per il lavoro e la previdenza sociale in data 12 settembre 1959, nonche' i modelli A, B e C allegati al medesimo decreto.
+</p>
+                                </content>
+                            </point>
+                        </list>
+                    </paragraph>
+                    <paragraph eId="art_9__para_2">
+                        <num>2.</num>
+                        <content>
+                            <p>I riferimenti alle disposizioni abrogate contenute in altri testi normativi si intendono riferiti alle disposizioni del presente regolamento.
+</p>
+                        </content>
+                    </paragraph>
+                    <paragraph eId="art_9__para_3">
+                        <num>3.</num>
+                        <content>
+                            <p>Il presente regolamento si applica anche ai procedimenti pendenti alla data della sua entrata in vigore.
+</p>
+                        </content>
+                    </paragraph>
+                    <section>
+                        <content>
+                            <p>
+                                <authorialNote eId="authorialNote_2" placement="bottom">
+                                    <p> Nota all'<ref eId="content__ref_32" href="/akn/it/act/decretoDelPresidenteDellaRepubblica/stato/1955-04-27/547/!main#art_9">art. 9:
+ - Il decreto del Presidente della Repubblica 27 aprile 1955, n. 547</ref>, reca: "Norme per la prevenzione degli infortuni sul lavoro".
+</p>
+                                </authorialNote>
+                            </p>
+                        </content>
+                    </section>
+                </article>
+                <article eId="art_10">
+                    <num>Art. 10.</num>
+                    <heading> Entrata in vigore</heading>
+                    <paragraph eId="art_10__para_1">
+                        <num>1.</num>
+                        <content>
+                            <p>Il presente regolamento entra in vigore il quindicesimo giorno successivo a quello della sua pubblicazione nella Gazzetta Ufficiale della Repubblica italiana.
+ </p>
+                        </content>
+                    </paragraph>
+                </article>
+            </chapter>
+        </body>
+        <conclusions>
+            <formula name="formulaFinaleConclusioni">
+                <p>Il presente decreto, munito del sigillo dello Stato, sara' inserito nella Raccolta ufficiale degli atti normativi della Repubblica italiana. E' fatto obbligo a chiunque spetti di osservarlo e di farlo osservare.</p>
+            </formula>
+            <p> Dato a Roma, addi' 22 ottobre 2001</p>
+            <p>CIAMPI Berlusconi, Presidente del Consiglio dei Ministri Frattini, Ministro per la funzione pubblica Marzano, Ministro delle attivita' produttive Maroni, Ministro del lavoro e delle politiche sociali Sirchia, Ministro della salute Visto, il Guardasigilli: Castelli Registrato alla Corte dei conti il 27 dicembre 2001 Ministeri istituzionali, registro n. 14, foglio n. 170</p>
+        </conclusions>
+    </act>
+</akomaNtoso>

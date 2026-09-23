@@ -33,7 +33,7 @@ python -m venv .venv
 .venv/bin/pip install -e ".[dev]"
 set -a; . ../../.env; set +a
 .venv/bin/alembic upgrade head
-.venv/bin/ocio importa-dlgs-81
+.venv/bin/ocio importa-corpus
 ```
 
 `POSTGRES_DB`, `POSTGRES_USER` e `POSTGRES_PASSWORD` configurano sia il
@@ -43,6 +43,26 @@ dove l'applicazione raggiunge PostgreSQL.
 Alembic è l'unica fonte di verità per le evoluzioni dello schema. La migrazione
 iniziale abilita in modo idempotente le due estensioni predisposte dall'immagine
 locale.
+
+## Corpus fonti
+
+Ogni `seed_document` di `ocio_sources.yaml` punta a una o più acquisizioni
+immutabili in `corpus/fonti/<id>/`. Le pagine ufficiali divise in articoli o
+allegati sono registrate come file distinti. Il registro conserva URL ufficiale,
+formato, data di acquisizione, SHA-256 e vigenza quando applicabile. Le nuove
+acquisizioni si aggiungono come nuovi file datati; non si sostituiscono quelle
+già versionate.
+Per registrare un nuovo file, aggiungilo sotto la cartella del documento e copia
+nel registro il digest prodotto da `sha256sum`.
+
+```sh
+sha256sum corpus/fonti/<id>/<data>.<estensione>
+```
+
+`ocio importa-corpus` legge solo i file locali, verifica hash e formato e importa
+contenuto e metadati nel database. Non contatta le fonti remote. Un file mancante,
+un hash diverso o un formato inatteso interrompono l'importazione con un errore
+che identifica il documento.
 
 ## Verifica
 
