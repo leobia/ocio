@@ -32,7 +32,7 @@ class AcquisitionError(Exception):
 
 @dataclass(frozen=True, slots=True)
 class SourceAcquisition:
-    """One verified local source file and its registry metadata."""
+    """A verified repository file and metadata ready to be copied into the database."""
 
     document_id: str
     provider: str
