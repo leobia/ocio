@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 from sqlalchemy import create_engine, text
 
+from ocio.bm25 import bm25_index_name
 from ocio.chunking import ChunkingConfig, generate_chunk_set
 from ocio.database import database_url
 
@@ -51,9 +52,20 @@ def test_chunk_sets_are_reused_isolated_and_sourceable() -> None:
                     "OR child.documento_id <> parent.documento_id"
                 )
             ).scalar_one()
+            bm25_indexes = {
+                name
+                for name in connection.execute(
+                    text(
+                        "SELECT indexname FROM pg_indexes "
+                        "WHERE schemaname = current_schema() AND tablename = 'chunk'"
+                    )
+                ).scalars()
+            }
     finally:
         engine.dispose()
 
     assert fixed_count == fixed.chunks
     assert broken_sources == 0
     assert cross_set_parents == 0
+    assert bm25_index_name(fixed.set_id) in bm25_indexes
+    assert bm25_index_name(structural.set_id) in bm25_indexes

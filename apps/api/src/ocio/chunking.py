@@ -13,6 +13,7 @@ import tiktoken
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Connection
 
+from ocio.bm25 import ensure_bm25_index
 from ocio.database import database_url
 
 Strategy = Literal["fixed", "structural"]
@@ -516,6 +517,7 @@ def generate_chunk_set(strategy: Strategy, config: ChunkingConfig) -> ChunkingRe
                 {"fingerprint": fingerprint},
             ).scalar_one_or_none()
             if existing is not None:
+                ensure_bm25_index(connection, int(existing))
                 counts = (
                     connection.execute(
                         text(
@@ -557,6 +559,7 @@ def generate_chunk_set(strategy: Strategy, config: ChunkingConfig) -> ChunkingRe
                 ).scalar_one()
             )
             _store_drafts(connection, set_id, drafts, partitions)
+            ensure_bm25_index(connection, set_id)
             parents = sum(draft.role == "parent" for draft in drafts)
             return ChunkingReport(set_id, strategy, len(drafts), parents, False)
     finally:
