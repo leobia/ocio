@@ -1,9 +1,8 @@
-"""Parse the locally acquired OCIO PDFs using text layout and page geometry."""
+"""Ricostruisce le partizioni PDF conservando layout, pagine e coordinate."""
 
 from __future__ import annotations
 
 import io
-import json
 import re
 from collections import defaultdict
 from dataclasses import dataclass
@@ -16,8 +15,8 @@ from ocio.parsing import (
     ParseAnomaly,
     ParsedDocument,
     ParsedPartition,
+    document_from_metadata,
     normalize_whitespace,
-    parse_iso_date,
 )
 
 
@@ -282,38 +281,6 @@ class _DocumentBuilder:
         self.add(identifier, kind, parent, content, _spans(blocks))
 
 
-def _new_document(
-    acquisition: SourceAcquisition,
-    metadata: dict[str, object],
-    partitions: tuple[ParsedPartition, ...],
-    *,
-    code: str | None = None,
-    title: str | None = None,
-    kind: str = "atto_normativo",
-    validity: str | None = None,
-    anomalies: tuple[ParseAnomaly, ...] = (),
-) -> ParsedDocument:
-    doc_title = title or metadata.get("title")
-    validity_metadata = metadata.get("vigenza_per_decreto")
-    effective_from = (
-        validity_metadata.get(validity)
-        if validity and isinstance(validity_metadata, dict)
-        else metadata.get("vigente_dal")
-    )
-    return ParsedDocument(
-        codice=code or acquisition.document_id,
-        titolo=doc_title if isinstance(doc_title, str) else acquisition.document_id,
-        tipo_documento=kind,
-        urn=None,
-        vigente_dal=parse_iso_date(effective_from),
-        vigente_al=parse_iso_date(metadata.get("vigente_al")),
-        snapshot_al=parse_iso_date(metadata.get("snapshot_as_of")),
-        pubblicato_il=parse_iso_date(metadata.get("published_on")),
-        partizioni=partitions,
-        anomalie=anomalies,
-    )
-
-
 def _is_boilerplate(block: _Block, page_height: float) -> bool:
     if _is_page_number(block, page_height):
         return True
@@ -516,12 +483,12 @@ def _parse_faq(
     flush_question()
     if not builder.partitions:
         raise ValueError(f"{acquisition.local_path}: nessun quesito FAQ trovato.")
-    return _new_document(
-        acquisition,
+    return document_from_metadata(
+        acquisition.document_id,
         metadata,
         tuple(builder.partitions),
-        kind="faq",
-        anomalies=tuple(anomalies),
+        tipo_documento="faq",
+        anomalie=tuple(anomalies),
     )
 
 
@@ -552,7 +519,8 @@ def _heading_kind(
     if number and bold:
         label = number.group(1).rstrip(".")
         return "sezione", f"punto-{label}", number.group(2).strip()
-    if bold and x0 < 125 and text.isupper() and len(text) < 140:
+    heading_length = 300 if format_name == "accordo_59_csr_2025" else 140
+    if bold and x0 < 125 and text.isupper() and len(text) < heading_length:
         return "sezione", _slug(text)[:80], text
     if format_name == "di_30_11_2012" and text.strip() in {"I", "II"}:
         marker = text.strip().lower()
@@ -561,6 +529,63 @@ def _heading_kind(
         marker = text.split(".", 1)[0].lower()
         return "parte", f"parte-{marker}", text.split(".", 1)[1].strip()
     return None
+
+
+def _join_wrapped_section_headings(
+    blocks: list[_Block], format_name: str
+) -> list[_Block]:
+    """Join consecutive lines belonging to one unnumbered PDF heading."""
+    if format_name != "accordo_59_csr_2025":
+        return blocks
+
+    joined: list[_Block] = []
+    index = 0
+    while index < len(blocks):
+        first = blocks[index]
+        heading = _heading_kind(first.text.strip(), first.bold, first.x0, format_name)
+        if heading is None or heading[0] != "sezione" or _number_heading(first.text):
+            joined.append(first)
+            index += 1
+            continue
+
+        lines = [first]
+        next_index = index + 1
+        while next_index < len(blocks):
+            candidate = blocks[next_index]
+            candidate_heading = _heading_kind(
+                candidate.text.strip(), candidate.bold, candidate.x0, format_name
+            )
+            if (
+                candidate.page != first.page
+                or candidate.kind != "line"
+                or candidate_heading is None
+                or candidate_heading[0] != "sezione"
+                or _number_heading(candidate.text)
+                or abs(candidate.x0 - first.x0) > 2
+                or abs(candidate.font_size - first.font_size) > 0.1
+                or candidate.top - lines[-1].bottom > 8
+            ):
+                break
+            lines.append(candidate)
+            next_index += 1
+
+        if len(lines) == 1:
+            joined.append(first)
+        else:
+            joined.append(
+                _Block(
+                    text=" ".join(line.text.strip() for line in lines),
+                    page=first.page,
+                    top=first.top,
+                    bottom=lines[-1].bottom,
+                    x0=min(line.x0 for line in lines),
+                    x1=max(line.x1 for line in lines),
+                    bold=True,
+                    font_size=first.font_size,
+                )
+            )
+        index = next_index
+    return joined
 
 
 def _parse_structured_pdf(
@@ -575,6 +600,7 @@ def _parse_structured_pdf(
     validity: str | None = None,
     format_name: str,
 ) -> ParsedDocument:
+    blocks = _join_wrapped_section_headings(blocks, format_name)
     builder = _DocumentBuilder(acquisition)
     root = "documento"
     builder.add(root, "documento", None, "", [])
@@ -680,7 +706,11 @@ def _parse_structured_pdf(
                         heading_blocks.append(possible_title)
                         skip_blocks.add(block_index + 1)
             else:
-                parent_id = active if active != root else root
+                parent_id = (
+                    max(hierarchy.items(), key=lambda item: len(item[0]))[1]
+                    if hierarchy
+                    else current_part
+                )
                 identifier = f"{parent_id}/{stable}"
             identifier = builder.add(
                 identifier,
@@ -794,15 +824,15 @@ def _parse_structured_pdf(
         raise ValueError(
             f"{acquisition.local_path}: nessun testo PDF strutturale trovato."
         )
-    return _new_document(
-        acquisition,
+    return document_from_metadata(
+        acquisition.document_id,
         metadata,
         tuple(builder.partitions),
-        code=code,
-        title=title,
-        kind=kind,
-        validity=validity,
-        anomalies=tuple(anomalies),
+        codice=code,
+        titolo=title,
+        tipo_documento=kind,
+        vigenza=validity,
+        anomalie=tuple(anomalies),
     )
 
 
@@ -851,7 +881,7 @@ def _parse_composite_fire_pdf(
         if offset == 0:
             section_anomalies.append(
                 ParseAnomaly(
-                    "Frontespizio, sommario e nota generale sul testo coordinato precedono i tre decreti e sono esclusi dalle unità normative.",
+                    "Frontespizio, sommario e nota generale sul testo coordinato precedono i tre decreti e sono esclusi dalle partizioni documentali.",
                     acquisition.local_path,
                     3,
                 )
@@ -875,23 +905,12 @@ def parse_pdf(
     acquisition: SourceAcquisition, metadata: dict[str, object]
 ) -> tuple[ParsedDocument, ...]:
     """Parse a PDF acquisition into one or more logical documents."""
-    try:
-        declared_metadata = json.loads(acquisition.metadata)
-    except (TypeError, json.JSONDecodeError) as error:
-        raise ValueError(
-            f"{acquisition.local_path}: metadati PDF non validi."
-        ) from error
-    if not isinstance(declared_metadata, dict):
-        raise ValueError(f"{acquisition.local_path}: metadati PDF non validi.")
-    document_metadata = {**declared_metadata, **metadata}
     blocks, anomalies, page_count = _extract_blocks(acquisition)
 
     if acquisition.document_id == "faq_accordo_59_2025":
-        return (_parse_faq(acquisition, document_metadata, blocks, anomalies),)
+        return (_parse_faq(acquisition, metadata, blocks, anomalies),)
     if acquisition.document_id == "dm_1_2_3_settembre_2021":
-        return _parse_composite_fire_pdf(
-            acquisition, document_metadata, blocks, anomalies
-        )
+        return _parse_composite_fire_pdf(acquisition, metadata, blocks, anomalies)
 
     if acquisition.document_id == "accordo_59_csr_2025":
         # The first page is the agreement's preamble; pages 2-5 are its table of contents.
@@ -929,7 +948,7 @@ def parse_pdf(
         return (
             _parse_structured_pdf(
                 acquisition,
-                document_metadata,
+                metadata,
                 source_blocks,
                 anomalies,
                 kind="accordo",
@@ -951,7 +970,7 @@ def parse_pdf(
         return (
             _parse_structured_pdf(
                 acquisition,
-                document_metadata,
+                metadata,
                 source_blocks,
                 anomalies,
                 format_name=acquisition.document_id,
@@ -967,7 +986,7 @@ def parse_pdf(
     return (
         _parse_structured_pdf(
             acquisition,
-            document_metadata,
+            metadata,
             blocks,
             anomalies,
             format_name=acquisition.document_id,

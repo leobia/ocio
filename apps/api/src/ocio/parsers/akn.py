@@ -1,4 +1,4 @@
-"""Parse Normattiva Akoma Ntoso XML into current document partitions."""
+"""Converte XML Akoma Ntoso nelle partizioni documentali correnti."""
 
 from __future__ import annotations
 
@@ -11,8 +11,8 @@ from ocio.parsing import (
     ParseAnomaly,
     ParsedDocument,
     ParsedPartition,
+    document_from_metadata,
     normalize_whitespace,
-    parse_iso_date,
 )
 
 LABEL_RE = re.compile(r"\b(Titolo|Capo|Sezione)\s+([IVXLCDM]+|\d+)\b", re.IGNORECASE)
@@ -86,7 +86,7 @@ def _slug(value: str) -> str:
     return normalized or "struttura"
 
 
-def _unit_identifier(
+def _partition_identifier(
     element: ElementTree.Element,
     parent_identifier: str | None,
     kind: str,
@@ -154,7 +154,7 @@ def _urn(root: ElementTree.Element) -> str | None:
 def parse_akn(
     acquisition: SourceAcquisition, metadata: dict[str, object]
 ) -> ParsedDocument:
-    """Parse an AKN source using its structural XML tree."""
+    """Parse an AKN source using its document structure."""
     try:
         root = ElementTree.fromstring(acquisition.content)
     except ElementTree.ParseError as error:
@@ -180,7 +180,9 @@ def parse_akn(
     ) -> str:
         sibling_orders[parent] += 1
         order = sibling_orders[parent]
-        stable_id = identifier or _unit_identifier(element, parent, kind, order, label)
+        stable_id = identifier or _partition_identifier(
+            element, parent, kind, order, label
+        )
         if stable_id in seen_identifiers:
             if element.get("eId") == stable_id:
                 raise ValueError(
@@ -268,8 +270,10 @@ def parse_akn(
         if name == "preamble":
             text = _body_text(element)
             if text:
-                unit_id = add(element, "premessa", parent, "Premessa", content=text)
-                walk_nonchapter_children(element, unit_id)
+                partition_id = add(
+                    element, "premessa", parent, "Premessa", content=text
+                )
+                walk_nonchapter_children(element, partition_id)
             return
         if name == "conclusions":
             text = _body_text(element)
@@ -307,8 +311,10 @@ def parse_akn(
                     or heading
                     or (f"Allegato {match.group(1)}" if match else "Allegato")
                 )
-                unit_id = add(element, "allegato", parent, label, heading or label, "")
-                walk_nonchapter_children(element, unit_id)
+                partition_id = add(
+                    element, "allegato", parent, label, heading or label, ""
+                )
+                walk_nonchapter_children(element, partition_id)
                 return
             article_rubric = heading or None
             if name == "article" and not article_rubric:
@@ -325,12 +331,12 @@ def parse_akn(
                 if unnumbered_paragraph is not None:
                     article_rubric = _body_text(unnumbered_paragraph)
             label = number or article_rubric or kind
-            unit_id = add(element, kind, parent, label, article_rubric)
-            walk_nonchapter_children(element, unit_id)
+            partition_id = add(element, kind, parent, label, article_rubric)
+            walk_nonchapter_children(element, partition_id)
             return
 
         if name in {"p", "intro", "content", "text"}:
-            # These containers contribute text to their closest structural parent.
+            # These containers contribute text to their closest parent partition.
             for nested in element:
                 if _local_name(nested) in STRUCTURAL_TAGS:
                     visit(nested, parent)
@@ -387,23 +393,19 @@ def parse_akn(
 
     if not partitions:
         raise ValueError(
-            f"{acquisition.local_path}: nessuna unità strutturale AKN trovata."
+            f"{acquisition.local_path}: nessuna partizione documentale AKN trovata."
         )
 
     title = metadata.get("title")
     if not isinstance(title, str):
         title = _child_text(root, "docTitle") or acquisition.document_id
 
-    return ParsedDocument(
-        codice=acquisition.document_id,
+    return document_from_metadata(
+        acquisition.document_id,
+        metadata,
+        tuple(partitions),
         titolo=title,
-        tipo_documento="atto_normativo",
         urn=_urn(root),
-        vigente_dal=parse_iso_date(metadata.get("vigente_dal")),
-        vigente_al=parse_iso_date(metadata.get("vigente_al")),
-        snapshot_al=parse_iso_date(metadata.get("snapshot_as_of")),
-        pubblicato_il=parse_iso_date(metadata.get("published_on")),
-        partizioni=tuple(partitions),
         anomalie=tuple(
             ParseAnomaly(message, acquisition.local_path) for message in anomalies
         ),

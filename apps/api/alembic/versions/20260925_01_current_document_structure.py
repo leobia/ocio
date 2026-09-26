@@ -1,4 +1,4 @@
-"""Store the current parsed document structure and its source locations."""
+"""Migra il database al modello documenti, partizioni e acquisizioni."""
 
 from __future__ import annotations
 

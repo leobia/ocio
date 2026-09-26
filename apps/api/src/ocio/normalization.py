@@ -1,10 +1,11 @@
-"""Normalize verified local acquisitions into the current document structure."""
+"""Coordina i parser e salva documenti e partizioni in modo idempotente."""
 
 from __future__ import annotations
 
 import hashlib
 import json
 from collections import defaultdict
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -197,7 +198,7 @@ def _store_document(
         partition_ids[partition.identifier] = int(result.scalar_one())
         seen.add(partition.identifier)
 
-    old_identifiers = (
+    old_identifiers: Sequence[str] = (
         connection.execute(
             text(
                 "SELECT identificatore FROM partizioni_documentali "
@@ -258,7 +259,7 @@ def format_report(report: NormalizationReport) -> str:
     lines = [
         f"Corpus normalizzato: {report.documenti} documenti, "
         f"{report.acquisizioni} acquisizioni, {report.partizioni} partizioni.",
-        f"Unità non classificate: {report.non_classificate}; anomalie: {len(report.anomalie)}.",
+        f"Partizioni non classificate: {report.non_classificate}; anomalie: {len(report.anomalie)}.",
     ]
     for anomaly in report.anomalie:
         location = f" pagina {anomaly.page}" if anomaly.page is not None else ""

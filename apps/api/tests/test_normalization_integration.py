@@ -1,8 +1,10 @@
-"""End-to-end current-corpus normalization contract."""
+"""Verifica persistenza, provenienza, idempotenza e report della normalizzazione."""
 
 from __future__ import annotations
 
 import json
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -125,3 +127,34 @@ def test_normalization_is_idempotent_and_preserves_the_agent_flag() -> None:
                     {"enabled": previous_flag},
                 )
         engine.dispose()
+
+
+@pytest.mark.integration
+def test_normalization_command_reports_partition_counts_and_anomalies() -> None:
+    try:
+        database_url()
+    except RuntimeError:
+        pytest.skip("PostgreSQL environment variables are not configured")
+
+    repository = Path(__file__).resolve().parents[3]
+    registry = repository / "ocio_sources.yaml"
+    import_source_acquisitions(registry)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "ocio",
+            "normalizza-corpus",
+            "--sources",
+            str(registry),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "Corpus normalizzato: 13 documenti, 22 acquisizioni" in result.stdout
+    assert "Partizioni non classificate:" in result.stdout
+    assert "pagina 16: La tabella contiene righe non ricostruite" in result.stdout

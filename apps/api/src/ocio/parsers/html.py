@@ -1,4 +1,4 @@
-"""Parse the acquisizioni HTML exported by the Gazzetta Ufficiale."""
+"""Estrae dagli HTML Gazzetta il testo di articoli e allegati."""
 
 from __future__ import annotations
 
@@ -12,6 +12,7 @@ from ocio.parsing import (
     ParseAnomaly,
     ParsedDocument,
     ParsedPartition,
+    document_from_metadata,
     normalize_whitespace,
     parse_iso_date,
 )
@@ -118,19 +119,13 @@ def parse_html(
     if not isinstance(metadata, dict):
         raise ValueError(f"{acquisitions[0].document_id}: metadati HTML non validi.")
 
-    ordered: list[tuple[int, SourceAcquisition, dict[str, object]]] = []
-    for index, acquisition in enumerate(acquisitions, start=1):
-        source_metadata = json.loads(acquisition.metadata)
-        if not isinstance(source_metadata, dict):
-            raise ValueError(f"{acquisition.local_path}: metadati HTML non validi.")
-        part = source_metadata.get("part")
-        part_name = part if isinstance(part, str) else f"Parte {index}"
-        ordered.append((index, acquisition, source_metadata))
-
     partitions: list[ParsedPartition] = []
     anomalies: list[ParseAnomaly] = []
     sibling_order = 0
-    for fallback_order, acquisition, source_metadata in ordered:
+    for fallback_order, acquisition in enumerate(acquisitions, start=1):
+        source_metadata = json.loads(acquisition.metadata)
+        if not isinstance(source_metadata, dict):
+            raise ValueError(f"{acquisition.local_path}: metadati HTML non validi.")
         part = source_metadata.get("part")
         part_name = part if isinstance(part, str) else f"Parte {fallback_order}"
         collector = _AttoTextParser()
@@ -215,15 +210,10 @@ def parse_html(
 
     document_id = acquisitions[0].document_id
     title = metadata.get("title")
-    return ParsedDocument(
-        codice=document_id,
-        titolo=title if isinstance(title, str) else document_id,
-        tipo_documento="atto_normativo",
-        urn=None,
-        vigente_dal=parse_iso_date(metadata.get("vigente_dal")),
-        vigente_al=parse_iso_date(metadata.get("vigente_al")),
-        snapshot_al=parse_iso_date(metadata.get("snapshot_as_of")),
-        pubblicato_il=parse_iso_date(metadata.get("published_on")),
-        partizioni=tuple(partitions),
+    return document_from_metadata(
+        document_id,
+        metadata,
+        tuple(partitions),
+        titolo=title if isinstance(title, str) else None,
         anomalie=tuple(anomalies),
     )

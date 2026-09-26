@@ -1,1 +1,1 @@
-"""Format-specific parsers for the local corpus."""
+"""Parser specifici per i formati del corpus locale."""

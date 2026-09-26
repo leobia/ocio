@@ -1,4 +1,4 @@
-"""Parser behavior against immutable files in the checked-in V1 corpus."""
+"""Verifica la struttura prodotta dai parser sui file reali del corpus V1."""
 
 from __future__ import annotations
 
@@ -103,6 +103,31 @@ def test_pdf_tables_keep_page_provenance_and_report_reconstruction_anomalies() -
         for partition in document.partizioni
     )
     assert any(anomaly.page == 3 for anomaly in document.anomalie)
+
+
+def test_agreement_pdf_joins_wrapped_headings_as_sibling_partitions() -> None:
+    document = corpus_documents()["accordo_59_csr_2025"]
+    headings = {
+        partition.rubrica: partition
+        for partition in document.partizioni
+        if partition.rubrica
+    }
+    confined_spaces = headings[
+        "RICONOSCIMENTO FORMAZIONE PREGRESSA DEI LAVORATORI, DATORI DI LAVORO E "
+        "LAVORATORI AUTONOMI CHE OPERANO IN AMBIENTI SOSPETTI DI INQUINAMENTO O "
+        "CONFINATI"
+    ]
+    equipment = headings[
+        "RICONOSCIMENTO FORMAZIONE PREGRESSA DEGLI OPERATORI ADDETTI ALLA "
+        "CONDUZIONE DI ATTREZZATURE DI CUI ALL’ARTICOLO 73, COMMA 5, DEL DECRETO "
+        "LEGISLATIVO 9 APRILE 2008, N. 81/2008"
+    ]
+
+    assert confined_spaces.genitore == equipment.genitore
+    parent = partition_by_id(document, confined_spaces.genitore)
+    assert parent.rubrica == "DISPOSIZIONI TRANSITORIE"
+    assert confined_spaces.localizzatore["pagina_da"] == 115
+    assert equipment.localizzatore["pagina_da"] == 115
 
 
 def test_corpus_parser_emits_thirteen_logical_current_documents() -> None:
