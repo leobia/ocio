@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ocio.local/schemas/silver-set-v1.schema.json",
+  "title": "Caso del silver set OCIO",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "kind",
+    "query",
+    "difficulty",
+    "answerable",
+    "expected_evidence"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "kind": {
+      "enum": ["grounded", "paraphrase", "fictional_case", "hard_negative"]
+    },
+    "query": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\S"
+    },
+    "difficulty": {
+      "enum": ["easy", "medium", "hard"]
+    },
+    "answerable": {
+      "type": "boolean"
+    },
+    "expected_evidence": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["document_code", "partition_identifier"],
+        "properties": {
+          "document_code": {
+            "type": "string",
+            "minLength": 1
+          },
+          "partition_identifier": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "kind": {"const": "hard_negative"}
+        },
+        "required": ["kind"]
+      },
+      "then": {
+        "properties": {
+          "answerable": {"const": false},
+          "expected_evidence": {"maxItems": 0}
+        }
+      },
+      "else": {
+        "properties": {
+          "answerable": {"const": true},
+          "expected_evidence": {"minItems": 1}
+        }
+      }
+    }
+  ]
+}

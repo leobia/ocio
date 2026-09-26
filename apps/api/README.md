@@ -37,3 +37,22 @@ delle partizioni, accorpa partizioni sorelle brevi e divide quelle oltre soglia.
 Entrambe conservano le partizioni sorgente e un eventuale parent per la successiva
 espansione del contesto. Configurazione o corpus diversi producono un nuovo insieme;
 rieseguire la stessa configurazione riusa quello esistente.
+
+## Silver set
+
+Esporta le partizioni non vuote dei documenti abilitati in un JSONL compatto da
+fornire, insieme al prompt versionato, a ChatGPT:
+
+```sh
+ocio esporta-corpus-valutazione ../../evaluation/corpus-for-silver-set.jsonl
+```
+
+Valida struttura, invarianti e riferimenti del dataset contro il corpus canonico:
+
+```sh
+ocio valida-silver-set ../../evaluation/silver-set-v1.jsonl
+```
+
+Il validatore accumula tutti gli errori e termina con exit status `1` quando il
+file non è valido. Gli hard negative richiedono comunque revisione: la loro
+non-rispondibilità non può essere dimostrata dal solo controllo strutturale.

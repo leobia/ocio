@@ -18,3 +18,5 @@ def test_help_is_available() -> None:
     assert "OCIO" in result.stdout
     assert "normalizza-corpus" in result.stdout
     assert "genera-chunk" in result.stdout
+    assert "esporta-corpus-valutazione" in result.stdout
+    assert "valida-silver-set" in result.stdout
