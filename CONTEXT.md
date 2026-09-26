@@ -5,21 +5,19 @@ vigenza e struttura.
 
 ## Language
 
-**Atto normativo**:
-Un provvedimento considerato come identità stabile, indipendente dalle modifiche
-che il suo testo subisce nel tempo.
-_Avoid_: Atto, documento
+**Documento**:
+Una fonte normativa o ufficiale identificata in modo stabile, come un atto normativo o un documento interpretativo.
+_Avoid_: File, acquisizione
 
-**Redazione**:
-Il testo di un atto normativo valido durante uno specifico intervallo di vigenza.
-_Avoid_: Versione, consolidamento
+**Atto normativo**:
+Un provvedimento che stabilisce disposizioni giuridiche ed è identificato indipendentemente dai testi consolidati acquisiti.
+_Avoid_: Documento, redazione
 
 **Acquisizione della fonte**:
 Una copia immutabile del contenuto ottenuto da una fonte in un momento preciso,
 insieme alle informazioni che ne attestano origine e integrità.
 _Avoid_: Snapshot, download
 
-**Partizione normativa**:
-Un elemento identificabile nella struttura gerarchica di una redazione, come un
-articolo, un comma o una lettera.
+**Partizione documentale**:
+Un elemento identificabile nella struttura gerarchica corrente di un documento, come un articolo, una domanda o una risposta.
 _Avoid_: Unità strutturale, nodo

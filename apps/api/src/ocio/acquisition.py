@@ -248,12 +248,7 @@ def import_source_acquisitions(sources: Path) -> int:
                         "(fonte, url, contenuto, sha256, acquisita_il, metadati) "
                         "VALUES (:provider, :url, :content, :digest, :acquired_at, "
                         "CAST(:metadata AS jsonb)) "
-                        "ON CONFLICT (fonte, sha256) DO UPDATE SET "
-                        "url = EXCLUDED.url, acquisita_il = EXCLUDED.acquisita_il, "
-                        "metadati = EXCLUDED.metadati "
-                        "WHERE acquisizioni_fonti.url IS DISTINCT FROM EXCLUDED.url "
-                        "OR acquisizioni_fonti.acquisita_il IS DISTINCT FROM EXCLUDED.acquisita_il "
-                        "OR acquisizioni_fonti.metadati IS DISTINCT FROM EXCLUDED.metadati"
+                        "ON CONFLICT (fonte, sha256) DO NOTHING"
                     ),
                     {
                         "provider": acquisition.provider,

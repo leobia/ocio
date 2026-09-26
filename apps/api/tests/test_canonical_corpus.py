@@ -1,4 +1,4 @@
-"""Canonical corpus database contract tests."""
+"""Canonical current-document database contract tests."""
 
 from __future__ import annotations
 
@@ -21,52 +21,57 @@ def database_engine() -> Engine:
         url = database_url()
     except RuntimeError:
         pytest.skip("PostgreSQL environment variables are not configured")
-
     return create_engine(url)
 
 
 def database_inspector() -> Inspector:
-    """Return an inspector for the configured integration database."""
-    return inspect(database_engine())
+    """Inspect the configured integration schema."""
+    engine = database_engine()
+    try:
+        return inspect(engine)
+    finally:
+        engine.dispose()
 
 
 @contextmanager
 def database_connection() -> Iterator[Connection]:
     """Provide a connection whose test data is always rolled back."""
-    with database_engine().connect() as connection:
-        transaction = connection.begin()
-        try:
-            yield connection
-        finally:
-            transaction.rollback()
+    engine = database_engine()
+    try:
+        with engine.connect() as connection:
+            transaction = connection.begin()
+            try:
+                yield connection
+            finally:
+                transaction.rollback()
+    finally:
+        engine.dispose()
 
 
 @pytest.mark.integration
-def test_canonical_corpus_schema_tracks_domain_concepts() -> None:
+def test_schema_tracks_current_documents_and_source_acquisitions() -> None:
     inspector = database_inspector()
     acquisition_columns = {
         column["name"]: column["type"]
         for column in inspector.get_columns("acquisizioni_fonti")
     }
-
     columns = {
         table: {column["name"] for column in inspector.get_columns(table)}
-        for table in (
-            "atti_normativi",
-            "redazioni",
-            "acquisizioni_fonti",
-            "partizioni_normative",
-        )
+        for table in ("documenti", "acquisizioni_fonti", "partizioni_documentali")
     }
 
     assert columns == {
-        "atti_normativi": {"id", "urn", "titolo"},
-        "redazioni": {
+        "documenti": {
             "id",
-            "atto_normativo_id",
-            "acquisizione_fonte_id",
+            "codice",
+            "tipo_documento",
+            "titolo",
+            "urn",
             "vigente_dal",
             "vigente_al",
+            "snapshot_al",
+            "pubblicato_il",
+            "abilitato_per_agente",
         },
         "acquisizioni_fonti": {
             "id",
@@ -77,14 +82,19 @@ def test_canonical_corpus_schema_tracks_domain_concepts() -> None:
             "acquisita_il",
             "metadati",
         },
-        "partizioni_normative": {
+        "partizioni_documentali": {
             "id",
-            "redazione_id",
+            "documento_id",
             "partizione_genitore_id",
+            "acquisizione_fonte_id",
             "identificatore",
             "tipo",
+            "rubrica",
             "ordine",
             "contenuto",
+            "localizzatore",
+            "vigente_dal",
+            "vigente_al",
         },
     }
     assert isinstance(acquisition_columns["contenuto"], LargeBinary)
@@ -95,48 +105,41 @@ def test_canonical_corpus_schema_tracks_domain_concepts() -> None:
             (tuple(key["constrained_columns"]), key["referred_table"])
             for key in inspector.get_foreign_keys(table)
         }
-        for table in ("redazioni", "partizioni_normative")
+        for table in ("partizioni_documentali",)
     }
-
-    assert foreign_keys == {
-        "redazioni": {
-            (("atto_normativo_id",), "atti_normativi"),
-            (("acquisizione_fonte_id",), "acquisizioni_fonti"),
-        },
-        "partizioni_normative": {
-            (("redazione_id",), "redazioni"),
-            (
-                ("partizione_genitore_id", "redazione_id"),
-                "partizioni_normative",
-            ),
-        },
+    assert foreign_keys["partizioni_documentali"] == {
+        (("documento_id",), "documenti"),
+        (("acquisizione_fonte_id",), "acquisizioni_fonti"),
+        (("partizione_genitore_id", "documento_id"), "partizioni_documentali"),
     }
 
 
 @pytest.mark.integration
-def test_a_normative_act_urn_identifies_only_one_normative_act() -> None:
+def test_document_code_is_unique_and_agent_flag_defaults_to_enabled() -> None:
     with database_connection() as connection:
         connection.execute(
             text(
-                "INSERT INTO atti_normativi (urn, titolo) "
-                "VALUES ('urn:nir:stato:decreto.legislativo:2008-04-09;81', "
-                "'Testo unico sulla sicurezza')"
+                "INSERT INTO documenti (codice, tipo_documento, titolo) "
+                "VALUES ('test-document-code', 'faq', 'FAQ')"
             )
         )
+        enabled = connection.execute(
+            text("SELECT abilitato_per_agente FROM documenti WHERE codice = :code"),
+            {"code": "test-document-code"},
+        ).scalar_one()
+        assert enabled is True
 
-        with pytest.raises(IntegrityError):
+        with pytest.raises(IntegrityError), connection.begin_nested():
             connection.execute(
                 text(
-                    "INSERT INTO atti_normativi (urn, titolo) "
-                    "VALUES ("
-                    "'urn:nir:stato:decreto.legislativo:2008-04-09;81', "
-                    "'Titolo duplicato')"
+                    "INSERT INTO documenti (codice, tipo_documento, titolo) "
+                    "VALUES ('test-document-code', 'faq', 'Duplicato')"
                 )
             )
 
 
 @pytest.mark.integration
-def test_source_content_is_acquired_only_once_per_source_hash() -> None:
+def test_source_content_is_unique_per_provider_and_hash() -> None:
     sha256 = "a" * 64
     with database_connection() as connection:
         connection.execute(
@@ -147,8 +150,7 @@ def test_source_content_is_acquired_only_once_per_source_hash() -> None:
             ),
             {"sha256": sha256},
         )
-
-        with pytest.raises(IntegrityError):
+        with pytest.raises(IntegrityError), connection.begin_nested():
             connection.execute(
                 text(
                     "INSERT INTO acquisizioni_fonti "
@@ -160,169 +162,50 @@ def test_source_content_is_acquired_only_once_per_source_hash() -> None:
 
 
 @pytest.mark.integration
-def test_redactions_coexist_only_when_validity_intervals_do_not_overlap() -> None:
+def test_partition_parent_must_belong_to_the_same_document() -> None:
     with database_connection() as connection:
-        act_id = connection.execute(
+        first_document = connection.execute(
             text(
-                "INSERT INTO atti_normativi (urn, titolo) "
-                "VALUES ('urn:test:redazioni', 'Atto con redazioni') RETURNING id"
+                "INSERT INTO documenti (codice, tipo_documento, titolo) "
+                "VALUES ('test-parent-a', 'atto_normativo', 'Atto A') RETURNING id"
+            )
+        ).scalar_one()
+        second_document = connection.execute(
+            text(
+                "INSERT INTO documenti (codice, tipo_documento, titolo) "
+                "VALUES ('test-parent-b', 'atto_normativo', 'Atto B') RETURNING id"
             )
         ).scalar_one()
         acquisition_id = connection.execute(
             text(
                 "INSERT INTO acquisizioni_fonti "
                 "(fonte, url, contenuto, sha256) VALUES "
-                "('Normattiva', 'https://example.test/redazioni', decode('<atto />', 'escape'), :sha256) "
+                "('Normattiva', 'https://example.test/parent', decode('<atto />', 'escape'), :sha256) "
                 "RETURNING id"
             ),
             {"sha256": "b" * 64},
         ).scalar_one()
-        parameters = {"act_id": act_id, "acquisition_id": acquisition_id}
-
-        connection.execute(
+        parent_id = connection.execute(
             text(
-                "INSERT INTO redazioni "
-                "(atto_normativo_id, acquisizione_fonte_id, vigente_dal, vigente_al) "
-                "VALUES (:act_id, :acquisition_id, '2020-01-01', '2022-01-01'), "
-                "(:act_id, :acquisition_id, '2022-01-01', NULL)"
+                "INSERT INTO partizioni_documentali "
+                "(documento_id, acquisizione_fonte_id, identificatore, tipo, ordine, contenuto) "
+                "VALUES (:document_id, :acquisition_id, 'art-1', 'articolo', 1, '') RETURNING id"
             ),
-            parameters,
-        )
+            {"document_id": first_document, "acquisition_id": acquisition_id},
+        ).scalar_one()
 
         with pytest.raises(IntegrityError), connection.begin_nested():
             connection.execute(
                 text(
-                    "INSERT INTO redazioni "
-                    "(atto_normativo_id, acquisizione_fonte_id, "
-                    "vigente_dal, vigente_al) "
-                    "VALUES (:act_id, :acquisition_id, '2021-01-01', '2023-01-01')"
+                    "INSERT INTO partizioni_documentali "
+                    "(documento_id, partizione_genitore_id, acquisizione_fonte_id, "
+                    " identificatore, tipo, ordine, contenuto) "
+                    "VALUES (:document_id, :parent_id, :acquisition_id, 'art-1/comma-1', "
+                    " 'comma', 1, '')"
                 ),
-                parameters,
-            )
-
-        count = connection.execute(
-            text("SELECT count(*) FROM redazioni WHERE atto_normativo_id = :act_id"),
-            parameters,
-        ).scalar_one()
-
-        assert count == 2
-
-
-@pytest.mark.integration
-def test_redaction_must_have_a_positive_validity_interval() -> None:
-    with database_connection() as connection:
-        act_id = connection.execute(
-            text(
-                "INSERT INTO atti_normativi (urn, titolo) "
-                "VALUES ('urn:test:intervallo', 'Atto') RETURNING id"
-            )
-        ).scalar_one()
-        acquisition_id = connection.execute(
-            text(
-                "INSERT INTO acquisizioni_fonti "
-                "(fonte, url, contenuto, sha256) VALUES "
-                "('Normattiva', 'https://example.test/intervallo', decode('<atto />', 'escape'), :sha256) "
-                "RETURNING id"
-            ),
-            {"sha256": "c" * 64},
-        ).scalar_one()
-
-        with pytest.raises(IntegrityError):
-            connection.execute(
-                text(
-                    "INSERT INTO redazioni "
-                    "(atto_normativo_id, acquisizione_fonte_id, "
-                    "vigente_dal, vigente_al) "
-                    "VALUES (:act_id, :acquisition_id, '2024-01-01', '2024-01-01')"
-                ),
-                {"act_id": act_id, "acquisition_id": acquisition_id},
-            )
-
-
-@pytest.mark.integration
-def test_partition_identifier_is_unique_within_a_redaction() -> None:
-    with database_connection() as connection:
-        redaction_id = connection.execute(
-            text(
-                "WITH act AS ("
-                "  INSERT INTO atti_normativi (urn, titolo) "
-                "  VALUES ('urn:test:partizioni', 'Atto') RETURNING id"
-                "), acquisition AS ("
-                "  INSERT INTO acquisizioni_fonti "
-                "  (fonte, url, contenuto, sha256) VALUES "
-                "  ('Normattiva', 'https://example.test/partizioni', "
-                "   decode('<atto />', 'escape'), :sha256) RETURNING id"
-                ") INSERT INTO redazioni "
-                "(atto_normativo_id, acquisizione_fonte_id, vigente_dal) "
-                "SELECT act.id, acquisition.id, '2024-01-01' "
-                "FROM act, acquisition RETURNING id"
-            ),
-            {"sha256": "d" * 64},
-        ).scalar_one()
-        parameters = {"redaction_id": redaction_id}
-        connection.execute(
-            text(
-                "INSERT INTO partizioni_normative "
-                "(redazione_id, identificatore, tipo, ordine, contenuto) VALUES "
-                "(:redaction_id, 'art-1', 'articolo', 1, 'Articolo 1')"
-            ),
-            parameters,
-        )
-
-        with pytest.raises(IntegrityError):
-            connection.execute(
-                text(
-                    "INSERT INTO partizioni_normative "
-                    "(redazione_id, identificatore, tipo, ordine, contenuto) VALUES "
-                    "(:redaction_id, 'art-1', 'articolo', 2, 'Duplicato')"
-                ),
-                parameters,
-            )
-
-
-@pytest.mark.integration
-def test_partition_parent_belongs_to_the_same_redaction() -> None:
-    with database_connection() as connection:
-        redaction_ids = (
-            connection.execute(
-                text(
-                    "WITH acts AS ("
-                    "  INSERT INTO atti_normativi (urn, titolo) VALUES "
-                    "  ('urn:test:gerarchia:1', 'Atto 1'), "
-                    "  ('urn:test:gerarchia:2', 'Atto 2') RETURNING id, urn"
-                    "), acquisition AS ("
-                    "  INSERT INTO acquisizioni_fonti "
-                    "  (fonte, url, contenuto, sha256) VALUES "
-                    "  ('Normattiva', 'https://example.test/gerarchia', "
-                    "   decode('<atti />', 'escape'), :sha256) RETURNING id"
-                    ") INSERT INTO redazioni "
-                    "(atto_normativo_id, acquisizione_fonte_id, vigente_dal) "
-                    "SELECT acts.id, acquisition.id, '2024-01-01' "
-                    "FROM acts, acquisition ORDER BY acts.urn RETURNING id"
-                ),
-                {"sha256": "e" * 64},
-            )
-            .scalars()
-            .all()
-        )
-        parent_id = connection.execute(
-            text(
-                "INSERT INTO partizioni_normative "
-                "(redazione_id, identificatore, tipo, ordine, contenuto) VALUES "
-                "(:redaction_id, 'art-1', 'articolo', 1, 'Articolo 1') "
-                "RETURNING id"
-            ),
-            {"redaction_id": redaction_ids[0]},
-        ).scalar_one()
-
-        with pytest.raises(IntegrityError):
-            connection.execute(
-                text(
-                    "INSERT INTO partizioni_normative "
-                    "(redazione_id, partizione_genitore_id, identificatore, "
-                    "tipo, ordine, contenuto) VALUES "
-                    "(:redaction_id, :parent_id, 'comma-1', "
-                    "'comma', 1, 'Comma 1')"
-                ),
-                {"redaction_id": redaction_ids[1], "parent_id": parent_id},
+                {
+                    "document_id": second_document,
+                    "parent_id": parent_id,
+                    "acquisition_id": acquisition_id,
+                },
             )

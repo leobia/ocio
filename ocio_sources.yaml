@@ -6,7 +6,7 @@ ingestion_policy:
   discovery_new_acts: false
   prefer_formats: [AKN, JSON, XML, HTML, PDF]
   index_current_law_first: true
-  keep_historical_versions: true
+  keep_historical_versions: false
   reembed_only_if_content_hash_changes: true
   do_not_duplicate_same_text_across_sources: true
 

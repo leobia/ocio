@@ -27,7 +27,7 @@ La V1 supporta:
 2. domande concettuali in linguaggio naturale;
 3. piccoli casi aziendali fittizi descritti in chat.
 
-Le domande storiche e il confronto automatico tra versioni sono rimandati. Lo storico viene comunque conservato nel modello dati.
+Le domande storiche e il confronto tra versioni sono fuori perimetro. L'agente usa la struttura corrente del corpus.
 
 ### Esperienza utente
 
@@ -35,7 +35,7 @@ L'interfaccia è una chat simile a ChatGPT con un pannello delle fonti. Ogni ris
 
 - risposta breve;
 - condizioni, limiti e informazioni mancanti;
-- fonte, versione e data di vigenza;
+- fonte e data di vigenza, quando applicabile;
 - articolo, comma e passaggio citato;
 - link alla fonte ufficiale;
 - feedback strutturato.
@@ -77,7 +77,7 @@ Se manca un'informazione, risponde per la parte supportata e formula una domanda
 ## Roadmap
 
 ```text
-1. Corpus canonico e versionato
+1. Corpus canonico da acquisizioni immutabili
 2. Benchmark del retrieval
 3. Generazione con citazioni e sufficiency
 4. Memoria conversazionale
@@ -143,33 +143,34 @@ Gli altri atti già elencati nel registry entrano dopo che ingestion e retrieval
 
 ### Aggiornamenti
 
-Gli atti originali sono trattati come append-only; le viste consolidate sono versionate. Per ogni acquisizione conservare almeno:
+Gli originali delle fonti sono immutabili e append-only. La tabella `documenti` contiene la struttura normalizzata corrente; ogni sua partizione punta all'acquisizione da cui è stata estratta. L'agente consulta solo questa struttura corrente: le acquisizioni precedenti restano disponibili per verificare la provenienza, senza query storiche o confronti tra versioni. Ogni documento può essere disabilitato per l'agente. Per ogni acquisizione conservare almeno:
 
 - provider e URL;
 - identificatore dell'atto;
-- versione e intervallo di vigenza;
+- data di riferimento e intervallo di vigenza, quando applicabili;
 - hash del contenuto;
 - data di acquisizione;
 - provenance.
 
-Nell'alpha nuove acquisizioni e redazioni saranno aggiunte manualmente; il controllo
-automatico delle nuove versioni resta nella roadmap. Il contenuto invariato non
-viene rielaborato né re-embedded.
+Nell'alpha nuove acquisizioni saranno aggiunte manualmente; il controllo automatico
+delle fonti resta nella roadmap. Il contenuto invariato riusa la stessa acquisizione.
 
 ## Modello canonico
 
 ```text
-Act
-└─ ActVersion
-   └─ StructuralUnit
-      ├─ titolo
-      ├─ capo
-      ├─ articolo
-      ├─ comma
-      └─ lettera
+Documento
+├─ Acquisizione della fonte (una o più)
+└─ Partizione documentale (struttura corrente)
+   ├─ titolo
+   ├─ capo
+   ├─ articolo
+   ├─ comma
+   ├─ lettera
+   ├─ domanda
+   └─ risposta
 ```
 
-I chunk sono proiezioni indicizzabili delle unità strutturali, non la source of truth. Una stessa versione può produrre più collezioni di chunk per confrontare strategie differenti senza ripetere il parsing.
+Ogni partizione punta all'acquisizione da cui proviene. I chunk sono proiezioni indicizzabili delle partizioni, non la source of truth.
 
 ## Milestone B — benchmark del retrieval
 
@@ -280,7 +281,7 @@ Condizioni e limiti
 - aspetti dipendenti dal caso concreto
 
 Riferimenti
-- atto, versione, articolo e comma
+- documento, articolo e comma
 - passaggio
 - data di vigenza
 - link ufficiale

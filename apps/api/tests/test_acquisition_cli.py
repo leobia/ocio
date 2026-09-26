@@ -240,7 +240,8 @@ def test_import_stores_local_bytes_and_metadata_idempotently(
         with engine.connect() as connection:
             stored = connection.execute(
                 text(
-                    "SELECT contenuto, metadati, sha256 FROM acquisizioni_fonti "
+                    "SELECT contenuto, metadati, sha256, url, acquisita_il "
+                    "FROM acquisizioni_fonti "
                     "WHERE fonte = 'Ministero del Lavoro' AND sha256 = :digest"
                 ),
                 {"digest": digest},
@@ -250,17 +251,33 @@ def test_import_stores_local_bytes_and_metadata_idempotently(
         assert stored.metadati["local_path"] == "corpus/fonti/sample/source.html"
         assert stored.sha256 == digest
 
+        changed_registry = yaml.safe_load(registry.read_text(encoding="utf-8"))
+        changed_registry["seed_documents"][0]["source"] = (
+            "https://example.invalid/changed-source"
+        )
+        changed_registry["seed_documents"][0]["acquired_on"] = "2026-09-24"
+        registry.write_text(yaml.safe_dump(changed_registry), encoding="utf-8")
         cli.main()
         assert "1 acquisizioni locali verificate" in capsys.readouterr().out
         with engine.connect() as connection:
-            count = connection.execute(
-                text(
-                    "SELECT count(*) FROM acquisizioni_fonti "
-                    "WHERE fonte = 'Ministero del Lavoro' AND sha256 = :digest"
-                ),
-                {"digest": digest},
-            ).scalar_one()
-        assert count == 1
+            persisted = (
+                connection.execute(
+                    text(
+                        "SELECT (SELECT count(*) FROM acquisizioni_fonti "
+                        "        WHERE fonte = 'Ministero del Lavoro' AND sha256 = :digest) AS count, "
+                        "       url, acquisita_il AS acquired_on, metadati AS metadata "
+                        "FROM acquisizioni_fonti "
+                        "WHERE fonte = 'Ministero del Lavoro' AND sha256 = :digest"
+                    ),
+                    {"digest": digest},
+                )
+                .mappings()
+                .one()
+            )
+        assert persisted["count"] == 1
+        assert persisted["url"] == "https://example.invalid/source"
+        assert persisted["acquired_on"].date().isoformat() == "2026-09-23"
+        assert persisted["metadata"]["source"] == "https://example.invalid/source"
     finally:
         with engine.begin() as connection:
             connection.execute(
