@@ -17,3 +17,4 @@ def test_help_is_available() -> None:
     assert result.returncode == 0
     assert "OCIO" in result.stdout
     assert "normalizza-corpus" in result.stdout
+    assert "genera-chunk" in result.stdout

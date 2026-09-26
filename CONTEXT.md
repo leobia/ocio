@@ -21,3 +21,7 @@ _Avoid_: Snapshot, download
 **Partizione documentale**:
 Un elemento identificabile nella struttura gerarchica corrente di un documento, come un articolo, una domanda o una risposta.
 _Avoid_: Unità strutturale, nodo
+
+**Chunk**:
+Una proiezione indicizzabile derivata da una o più partizioni documentali mediante una strategia versionata. Non è una fonte documentale.
+_Avoid_: Partizione documentale, fonte

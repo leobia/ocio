@@ -22,3 +22,18 @@ il layout conservando pagina e coordinate. Il parsing non usa rete né OCR.
 
 Il comando stampa conteggi, partizioni non classificate e anomalie con la pagina di
 origine quando disponibile.
+
+## Chunk per il retrieval
+
+Genera insiemi immutabili di chunk con una delle due strategie iniziali:
+
+```sh
+ocio genera-chunk fixed
+ocio genera-chunk structural
+```
+
+`fixed` crea finestre da 512 token senza overlap. `structural` conserva i confini
+delle partizioni, accorpa partizioni sorelle brevi e divide quelle oltre soglia.
+Entrambe conservano le partizioni sorgente e un eventuale parent per la successiva
+espansione del contesto. Configurazione o corpus diversi producono un nuovo insieme;
+rieseguire la stessa configurazione riusa quello esistente.
