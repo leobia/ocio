@@ -41,7 +41,7 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["document_code", "partition_identifier"],
+        "required": ["document_code", "partition_identifier", "evidence_text"],
         "properties": {
           "document_code": {
             "type": "string",
@@ -50,6 +50,11 @@
           "partition_identifier": {
             "type": "string",
             "minLength": 1
+          },
+          "evidence_text": {
+            "type": "string",
+            "minLength": 8,
+            "pattern": "\\S"
           }
         }
       }

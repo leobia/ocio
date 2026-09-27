@@ -25,6 +25,7 @@ class CorpusIndex:
 
     documents: Mapping[str, bool]
     partitions: frozenset[tuple[str, str]]
+    partition_texts: Mapping[tuple[str, str], str] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -112,17 +113,22 @@ def load_corpus_index(connection: Connection) -> CorpusIndex:
             text("SELECT codice, abilitato_per_agente FROM documenti")
         )
     }
-    partitions = frozenset(
-        (str(row.codice), str(row.identificatore))
+    partition_texts = {
+        (str(row.codice), str(row.identificatore)): str(row.contenuto)
         for row in connection.execute(
             text(
-                "SELECT d.codice, p.identificatore "
+                "SELECT d.codice, p.identificatore, p.contenuto "
                 "FROM partizioni_documentali AS p "
                 "JOIN documenti AS d ON d.id = p.documento_id"
             )
         )
-    )
-    return CorpusIndex(documents, partitions)
+    }
+    return CorpusIndex(documents, frozenset(partition_texts), partition_texts)
+
+
+def normalize_evidence_text(value: str) -> str:
+    """Normalizza solo differenze tipografiche irrilevanti per il matching."""
+    return " ".join(value.casefold().replace("’", "'").split())
 
 
 def _schema_issue(error: Any) -> str:
@@ -217,6 +223,20 @@ def validate_lines(
                         f"documento {document_code!r}",
                     )
                 )
+                continue
+            if corpus.partition_texts is not None:
+                expected_text = normalize_evidence_text(str(evidence["evidence_text"]))
+                partition_text = normalize_evidence_text(
+                    corpus.partition_texts[(document_code, partition_identifier)]
+                )
+                if expected_text not in partition_text:
+                    issues.append(
+                        ValidationIssue(
+                            line_number,
+                            f"estratto non presente nella partizione "
+                            f"{partition_identifier!r}",
+                        )
+                    )
     return ValidationReport(total, tuple(issues))
 
 

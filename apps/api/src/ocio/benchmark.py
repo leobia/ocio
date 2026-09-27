@@ -24,12 +24,16 @@ from ocio.cohere_reranker import (
     reranker_from_environment,
 )
 from ocio.database import database_url
+from ocio.dense import DenseRetriever
+from ocio.embeddings import CONFIGS, OpenAIEmbeddingClient
 from ocio.evaluation import (
     default_schema_path,
     format_validation_report,
     load_corpus_index,
+    normalize_evidence_text,
     validate_lines,
 )
+from ocio.fusion import RrfFusion, WeightedScoreFusion
 from ocio.jina_reranker import (
     JINA_MODEL,
     JinaRerankError,
@@ -39,7 +43,10 @@ from ocio.jina_reranker import (
 )
 from ocio.postgres_fts import PostgresFtsRetriever
 from ocio.retrieval import (
+    Candidate,
+    ChunkReference,
     PartitionReference,
+    RankedCandidate,
     Ranking,
     Reranker,
     RetrievalRun,
@@ -51,7 +58,7 @@ from ocio.retrieval import (
 BENCHMARK_SCHEMA_VERSION = 1
 BENCHMARK_ARTIFACT_SCHEMA_VERSION = 2
 ALPHA = 1.0
-_RETRIEVERS = {"postgres_fts", "bm25"}
+_RETRIEVERS = {"postgres_fts", "bm25", "dense_small", "dense_large"}
 SEARCH_UNIT_PRICE_USD = 2.50 / 1000
 PRICE_SNAPSHOT_DATE = "2026-09-27"
 
@@ -63,7 +70,20 @@ class BenchmarkError(Exception):
 @dataclass(frozen=True, slots=True)
 class RetrieverConfiguration:
     name: str
-    retriever: str
+    retriever: str | None = None
+    retrievers: tuple[str, ...] = ()
+    fusion: FusionConfiguration | None = None
+
+    @property
+    def sources(self) -> tuple[str, ...]:
+        return (self.retriever,) if self.retriever is not None else self.retrievers
+
+
+@dataclass(frozen=True, slots=True)
+class FusionConfiguration:
+    algorithm: str
+    rank_constant: int = 60
+    weights: tuple[float, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -85,6 +105,7 @@ class BenchmarkConfiguration:
     configurations: tuple[RetrieverConfiguration, ...]
     candidate_k: int | None = None
     reranker: RerankerConfiguration | None = None
+    parent_expansion: bool = False
     schema_version: int = BENCHMARK_SCHEMA_VERSION
 
 
@@ -94,6 +115,19 @@ class EvaluationCase:
     query: str
     answerable: bool
     expected_evidence: frozenset[PartitionReference]
+    evidence_texts: Mapping[PartitionReference, str] | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class EvidencePoolItem:
+    source_partitions: frozenset[PartitionReference]
+    content: str
+
+
+@dataclass(frozen=True, slots=True)
+class ParentContext:
+    source_partitions: frozenset[PartitionReference]
+    content: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -132,6 +166,7 @@ def load_configuration(source: Path) -> BenchmarkConfiguration:
         "top_k",
         "candidate_k",
         "reranker",
+        "parent_expansion",
         "output_directory",
         "configurations",
     }
@@ -142,8 +177,13 @@ def load_configuration(source: Path) -> BenchmarkConfiguration:
         raise BenchmarkError("schema_version deve essere 1.")
 
     fingerprint = value.get("chunk_set_fingerprint")
-    if not isinstance(fingerprint, str) or re.fullmatch(r"[0-9a-f]{64}", fingerprint) is None:
-        raise BenchmarkError("chunk_set_fingerprint deve essere uno SHA-256 esadecimale.")
+    if (
+        not isinstance(fingerprint, str)
+        or re.fullmatch(r"[0-9a-f]{64}", fingerprint) is None
+    ):
+        raise BenchmarkError(
+            "chunk_set_fingerprint deve essere uno SHA-256 esadecimale."
+        )
     top_k = value.get("top_k")
     if isinstance(top_k, bool) or not isinstance(top_k, int) or top_k <= 0:
         raise BenchmarkError("top_k deve essere un intero positivo.")
@@ -163,30 +203,54 @@ def load_configuration(source: Path) -> BenchmarkConfiguration:
 
     configurations: list[RetrieverConfiguration] = []
     for index, item in enumerate(raw_configurations, start=1):
-        if not isinstance(item, Mapping) or set(item) != {"name", "retriever"}:
-            raise BenchmarkError(
-                f"configurations[{index}] deve contenere soltanto name e retriever."
-            )
-        name = item["name"]
-        retriever = item["retriever"]
+        if not isinstance(item, Mapping):
+            raise BenchmarkError(f"configurations[{index}] deve essere un oggetto.")
+        name = item.get("name")
         if not isinstance(name, str) or not name.strip():
             raise BenchmarkError(f"configurations[{index}].name non è valido.")
-        if retriever not in _RETRIEVERS:
+        if set(item) == {"name", "retriever"}:
+            retriever = item["retriever"]
+            if retriever not in _RETRIEVERS:
+                raise BenchmarkError(
+                    f"Retriever {retriever!r} non supportato: {sorted(_RETRIEVERS)}."
+                )
+            configurations.append(RetrieverConfiguration(name, str(retriever)))
+            continue
+        if set(item) != {"name", "retrievers", "fusion"}:
             raise BenchmarkError(
-                f"Retriever {retriever!r} non supportato; usare postgres_fts o bm25."
+                f"configurations[{index}] deve definire retriever oppure "
+                "retrievers e fusion."
             )
-        configurations.append(RetrieverConfiguration(name, str(retriever)))
+        retrievers = item["retrievers"]
+        if (
+            not isinstance(retrievers, list)
+            or len(retrievers) < 2
+            or any(value not in _RETRIEVERS for value in retrievers)
+        ):
+            raise BenchmarkError(
+                f"configurations[{index}].retrievers richiede almeno due retriever "
+                "supportati."
+            )
+        fusion = _fusion_configuration(item["fusion"], len(retrievers), index)
+        configurations.append(
+            RetrieverConfiguration(
+                name=name,
+                retrievers=tuple(str(value) for value in retrievers),
+                fusion=fusion,
+            )
+        )
     names = [item.name for item in configurations]
     if len(names) != len(set(names)):
         raise BenchmarkError("I nomi delle configurazioni devono essere univoci.")
 
     reranker = _reranker_configuration(value.get("reranker"))
-    if reranker is not None and (
-        len(configurations) != 1 or configurations[0].retriever != "bm25"
-    ):
+    if reranker is not None and len(configurations) != 1:
         raise BenchmarkError(
-            "Il benchmark rerank richiede una sola configurazione BM25."
+            "Il benchmark rerank richiede una sola configurazione sorgente."
         )
+    parent_expansion = value.get("parent_expansion", False)
+    if not isinstance(parent_expansion, bool):
+        raise BenchmarkError("parent_expansion deve essere true o false.")
 
     return BenchmarkConfiguration(
         dataset=dataset,
@@ -196,7 +260,36 @@ def load_configuration(source: Path) -> BenchmarkConfiguration:
         configurations=tuple(configurations),
         candidate_k=candidate_k,
         reranker=reranker,
+        parent_expansion=parent_expansion,
     )
+
+
+def _fusion_configuration(
+    value: object, source_count: int, configuration_index: int
+) -> FusionConfiguration:
+    if not isinstance(value, Mapping) or "algorithm" not in value:
+        raise BenchmarkError(
+            f"configurations[{configuration_index}].fusion non è valida."
+        )
+    algorithm = value["algorithm"]
+    if algorithm == "rrf" and set(value) <= {"algorithm", "rank_constant"}:
+        rank_constant = value.get("rank_constant", 60)
+        if isinstance(rank_constant, bool) or not isinstance(rank_constant, int):
+            raise BenchmarkError("fusion.rank_constant deve essere un intero.")
+        return FusionConfiguration("rrf", rank_constant=rank_constant)
+    if algorithm == "weighted" and set(value) == {"algorithm", "weights"}:
+        weights = value["weights"]
+        if not isinstance(weights, list) or len(weights) != source_count:
+            raise BenchmarkError("fusion.weights deve avere un peso per retriever.")
+        try:
+            return FusionConfiguration(
+                "weighted", weights=tuple(float(weight) for weight in weights)
+            )
+        except (TypeError, ValueError) as error:
+            raise BenchmarkError(
+                "fusion.weights contiene un peso non valido."
+            ) from error
+    raise BenchmarkError("fusion supporta rrf oppure weighted.")
 
 
 def _reranker_configuration(value: object) -> RerankerConfiguration | None:
@@ -291,7 +384,8 @@ def execute_benchmark(
             configuration, connection, retriever_factory, reranker
         )
     cases, dataset_digest = _load_cases(configuration.dataset, connection)
-    evidence_pool = _load_evidence_pool(
+    evidence_pool = _load_evidence_pool(connection, configuration.chunk_set_fingerprint)
+    parent_contexts = _load_parent_contexts(
         connection, configuration.chunk_set_fingerprint
     )
     run_id = _run_id(configuration, dataset_digest)
@@ -301,27 +395,38 @@ def execute_benchmark(
     factory = retriever_factory or _retriever
 
     for requested in configuration.configurations:
-        retriever = factory(
-            requested.retriever, connection, configuration.chunk_set_fingerprint
+        retrievers = tuple(
+            factory(kind, connection, configuration.chunk_set_fingerprint)
+            for kind in requested.sources
         )
         case_reports: list[dict[str, Any]] = []
         metrics: list[CaseMetrics] = []
         effective: dict[str, Any] | None = None
         for case in cases:
             try:
-                ranking = retriever.retrieve(case.query, configuration.top_k)
+                rankings = _retrieve_pipeline(
+                    requested,
+                    retrievers,
+                    case.query,
+                    configuration.candidate_k or configuration.top_k,
+                    configuration.top_k,
+                )
             except Exception as error:
                 raise BenchmarkError(
                     f"Configurazione {requested.name!r}, caso {case.case_id!r}: {error}"
                 ) from error
+            ranking = rankings[-1]
+            if configuration.parent_expansion:
+                ranking = _expand_parents(ranking, parent_contexts)
             ranking = replace(
                 ranking,
                 configuration={
                     **ranking.configuration,
                     "benchmark_configuration": requested.name,
-                    "retriever": requested.retriever,
+                    "pipeline": list(requested.sources),
                 },
             )
+            rankings = (*rankings[:-1], ranking)
             if effective is None:
                 effective = ranking.configuration
             elif effective != ranking.configuration:
@@ -334,11 +439,16 @@ def execute_benchmark(
                     case_id=case.case_id,
                     query=case.query,
                     chunk_set_fingerprint=configuration.chunk_set_fingerprint,
-                    rankings=(ranking,),
+                    rankings=rankings,
                 )
             )
             report, case_metrics = _case_report(
-                case, ranking, configuration.top_k, evidence_pool
+                case,
+                ranking,
+                configuration.top_k,
+                evidence_pool,
+                parent_contexts,
+                rankings,
             )
             case_reports.append(report)
             if case_metrics is not None:
@@ -348,7 +458,7 @@ def execute_benchmark(
         effective_configurations.append(
             {
                 "name": requested.name,
-                "retriever": requested.retriever,
+                "pipeline": list(requested.sources),
                 "effective": effective,
             }
         )
@@ -367,6 +477,7 @@ def execute_benchmark(
         "dataset_sha256": dataset_digest,
         "chunk_set_fingerprint": configuration.chunk_set_fingerprint,
         "top_k": configuration.top_k,
+        "parent_expansion": configuration.parent_expansion,
         "configurations": effective_configurations,
         "artifacts": {
             "trace": trace_path.name,
@@ -377,8 +488,10 @@ def execute_benchmark(
         "schema_version": BENCHMARK_ARTIFACT_SCHEMA_VERSION,
         "run_id": run_id,
         "top_k": configuration.top_k,
+        "parent_expansion": configuration.parent_expansion,
         "alpha": ALPHA,
         "configurations": configuration_reports,
+        "comparisons": _configuration_comparisons(configuration_reports),
     }
     try:
         output.mkdir(parents=True, exist_ok=True)
@@ -397,7 +510,8 @@ def _execute_paired_benchmark(
     reranker: Reranker,
 ) -> BenchmarkArtifacts:
     cases, dataset_digest = _load_cases(configuration.dataset, connection)
-    evidence_pool = _load_evidence_pool(
+    evidence_pool = _load_evidence_pool(connection, configuration.chunk_set_fingerprint)
+    parent_contexts = _load_parent_contexts(
         connection, configuration.chunk_set_fingerprint
     )
     candidate_k = configuration.candidate_k or configuration.top_k
@@ -405,8 +519,9 @@ def _execute_paired_benchmark(
     assert rerank_configuration is not None
     requested = configuration.configurations[0]
     factory = retriever_factory or _retriever
-    retriever = factory(
-        requested.retriever, connection, configuration.chunk_set_fingerprint
+    retrievers = tuple(
+        factory(kind, connection, configuration.chunk_set_fingerprint)
+        for kind in requested.sources
     )
     run_id = _run_id(configuration, dataset_digest)
     runs: list[RetrievalRun] = []
@@ -428,15 +543,26 @@ def _execute_paired_benchmark(
 
     for case in cases:
         try:
-            source = retriever.retrieve(case.query, candidate_k)
+            source_rankings = _retrieve_pipeline(
+                requested,
+                retrievers,
+                case.query,
+                candidate_k,
+                candidate_k,
+            )
+            source = source_rankings[-1]
+            if configuration.parent_expansion:
+                source = _expand_parents(source, parent_contexts)
         except Exception as error:
-            raise BenchmarkError(f"Caso {case.case_id!r}, BM25: {error}") from error
+            raise BenchmarkError(
+                f"Caso {case.case_id!r}, retrieval: {error}"
+            ) from error
         source = replace(
             source,
             configuration={
                 **source.configuration,
                 "benchmark_configuration": requested.name,
-                "retriever": "bm25",
+                "pipeline": list(requested.sources),
                 "candidate_k": candidate_k,
                 "top_k": configuration.top_k,
             },
@@ -444,10 +570,15 @@ def _execute_paired_benchmark(
         if source_effective is None:
             source_effective = source.configuration
         elif source_effective != source.configuration:
-            raise BenchmarkError("La configurazione BM25 cambia fra i casi.")
+            raise BenchmarkError("La configurazione della sorgente cambia fra i casi.")
         source_latencies.append(source.latency_ms)
         baseline_report, baseline_case_metrics = _case_report(
-            case, source, configuration.top_k, evidence_pool
+            case,
+            source,
+            configuration.top_k,
+            evidence_pool,
+            parent_contexts,
+            (source,),
         )
         baseline_cases.append(baseline_report)
         if baseline_case_metrics is not None:
@@ -457,7 +588,7 @@ def _execute_paired_benchmark(
             )
 
         rerank_error: str | None = None
-        rankings: tuple[Ranking, ...] = (source,)
+        rankings: tuple[Ranking, ...] = (*source_rankings[:-1], source)
         try:
             interval = rerank_configuration.request_interval_seconds
             if previous_rerank_started_at is not None and interval > 0:
@@ -466,7 +597,7 @@ def _execute_paired_benchmark(
                     time.sleep(remaining)
             previous_rerank_started_at = time.monotonic()
             reranked = reranker.rerank(case.query, source, configuration.top_k)
-            rankings = (source, reranked)
+            rankings = (*source_rankings[:-1], source, reranked)
             rerank_latencies.append(reranked.latency_ms)
             rerank_end_to_end_latencies.append(source.latency_ms + reranked.latency_ms)
             billed_search_units += float(
@@ -483,7 +614,12 @@ def _execute_paired_benchmark(
             elif rerank_effective != effective:
                 raise BenchmarkError("La configurazione reranker cambia fra i casi.")
             rerank_report, rerank_case_metrics = _case_report(
-                case, reranked, configuration.top_k, evidence_pool
+                case,
+                reranked,
+                configuration.top_k,
+                evidence_pool,
+                parent_contexts,
+                (source, reranked),
             )
             rerank_cases.append(rerank_report)
             if baseline_case_metrics is not None and rerank_case_metrics is not None:
@@ -525,8 +661,9 @@ def _execute_paired_benchmark(
         "chunk_set_fingerprint": configuration.chunk_set_fingerprint,
         "candidate_k": candidate_k,
         "top_k": configuration.top_k,
+        "parent_expansion": configuration.parent_expansion,
         "variants": [
-            {"name": "bm25-baseline", "source": source_effective},
+            {"name": f"{requested.name}-baseline", "source": source_effective},
             {
                 "name": f"{rerank_configuration.provider}-rerank",
                 "source": source_effective,
@@ -550,6 +687,7 @@ def _execute_paired_benchmark(
         "run_id": run_id,
         "candidate_k": candidate_k,
         "top_k": configuration.top_k,
+        "parent_expansion": configuration.parent_expansion,
         "alpha": ALPHA,
         "decision": _decision(complete, aggregate_deltas),
         "source": {
@@ -570,9 +708,7 @@ def _execute_paired_benchmark(
             "failure_details": failures,
             "aggregate": _quality_aggregate(rerank_metrics),
             "latency_ms": _latency_summary(rerank_latencies),
-            "end_to_end_latency_ms": _latency_summary(
-                rerank_end_to_end_latencies
-            ),
+            "end_to_end_latency_ms": _latency_summary(rerank_end_to_end_latencies),
             "billed_search_units": billed_search_units,
             "total_tokens": total_tokens,
             "estimated_cost_usd": (
@@ -650,8 +786,10 @@ def _decision(complete: bool, deltas: Mapping[str, float]) -> str:
     if not complete:
         return "inconclusive"
     values = tuple(deltas.values())
-    if values and all(value >= 0 for value in values) and any(
-        value > 0 for value in values
+    if (
+        values
+        and all(value >= 0 for value in values)
+        and any(value > 0 for value in values)
     ):
         return "carry-forward-to-#15"
     return "reject"
@@ -696,28 +834,30 @@ def _load_cases(
 
 
 def _case(value: Mapping[str, Any]) -> EvaluationCase:
+    evidence_texts = {
+        PartitionReference(
+            document_code=str(item["document_code"]),
+            partition_identifier=str(item["partition_identifier"]),
+        ): str(item["evidence_text"])
+        for item in value["expected_evidence"]
+    }
     return EvaluationCase(
         case_id=str(value["id"]),
         query=str(value["query"]),
         answerable=bool(value["answerable"]),
-        expected_evidence=frozenset(
-            PartitionReference(
-                document_code=str(item["document_code"]),
-                partition_identifier=str(item["partition_identifier"]),
-            )
-            for item in value["expected_evidence"]
-        ),
+        expected_evidence=frozenset(evidence_texts),
+        evidence_texts=evidence_texts,
     )
 
 
 def _load_evidence_pool(
     connection: Connection, fingerprint: str
-) -> tuple[frozenset[PartitionReference], ...]:
+) -> tuple[EvidencePoolItem, ...]:
     rows = connection.execute(
         text(
             "SELECT documento.codice AS document_code, "
             "       fonte.identificatore_partizione AS partition_identifier, "
-            "       chunk.id AS chunk_id "
+            "       chunk.id AS chunk_id, chunk.contenuto AS content "
             "FROM chunk "
             "JOIN insiemi_chunk AS insieme ON insieme.id = chunk.insieme_chunk_id "
             "JOIN documenti AS documento ON documento.id = chunk.documento_id "
@@ -730,20 +870,58 @@ def _load_evidence_pool(
         {"fingerprint": fingerprint},
     )
     grouped: dict[int, set[PartitionReference]] = {}
+    contents: dict[int, str] = {}
     for row in rows:
-        grouped.setdefault(int(row.chunk_id), set()).add(
+        chunk_id = int(row.chunk_id)
+        grouped.setdefault(chunk_id, set()).add(
             PartitionReference(str(row.document_code), str(row.partition_identifier))
         )
+        contents[chunk_id] = str(row.content)
     if not grouped:
         raise BenchmarkError(f"Insieme di chunk inesistente o vuoto: {fingerprint}.")
-    return tuple(frozenset(value) for value in grouped.values())
+    return tuple(
+        EvidencePoolItem(frozenset(partitions), contents[chunk_id])
+        for chunk_id, partitions in grouped.items()
+    )
+
+
+def _load_parent_contexts(
+    connection: Connection, fingerprint: str
+) -> dict[ChunkReference, ParentContext]:
+    rows = connection.execute(
+        text(
+            "SELECT documento.codice AS document_code, "
+            "       chunk.identificatore AS chunk_identifier, "
+            "       chunk.contenuto AS content, "
+            "       fonte.identificatore_partizione AS partition_identifier "
+            "FROM chunk "
+            "JOIN insiemi_chunk AS insieme ON insieme.id = chunk.insieme_chunk_id "
+            "JOIN documenti AS documento ON documento.id = chunk.documento_id "
+            "JOIN chunk_partizioni AS fonte ON fonte.chunk_id = chunk.id "
+            "WHERE insieme.fingerprint = :fingerprint AND chunk.ruolo = 'parent' "
+            "ORDER BY chunk.id, fonte.posizione"
+        ),
+        {"fingerprint": fingerprint},
+    )
+    sources: dict[ChunkReference, set[PartitionReference]] = {}
+    contents: dict[ChunkReference, str] = {}
+    for row in rows:
+        reference = ChunkReference(str(row.document_code), str(row.chunk_identifier))
+        sources.setdefault(reference, set()).add(
+            PartitionReference(str(row.document_code), str(row.partition_identifier))
+        )
+        contents[reference] = str(row.content)
+    return {
+        reference: ParentContext(frozenset(partitions), contents[reference])
+        for reference, partitions in sources.items()
+    }
 
 
 def calculate_metrics(
     case: EvaluationCase,
     ranking: Ranking,
     top_k: int,
-    evidence_pool: Sequence[frozenset[PartitionReference]],
+    evidence_pool: Sequence[EvidencePoolItem | frozenset[PartitionReference]],
 ) -> CaseMetrics:
     """Calcola metriche evidence-aware per un caso rispondibile."""
     if not case.answerable or not case.expected_evidence:
@@ -753,7 +931,9 @@ def calculate_metrics(
     first_rank: int | None = None
     dcg = 0.0
     for item in ranking.candidates[:top_k]:
-        matches = expected.intersection(item.candidate.source_partitions)
+        matches = _covered_evidence(
+            case, item.candidate.source_partitions, item.candidate.content
+        )
         novel = matches - covered
         if matches and first_rank is None:
             first_rank = item.rank
@@ -761,7 +941,7 @@ def calculate_metrics(
             dcg += len(novel) / math.log2(item.rank + 1)
             covered.update(novel)
 
-    ideal_dcg = _ideal_dcg(expected, evidence_pool, top_k)
+    ideal_dcg = _ideal_dcg(case, evidence_pool, top_k)
     return CaseMetrics(
         evidence_recall_at_k=len(covered) / len(expected),
         mrr_at_k=0.0 if first_rank is None else 1.0 / first_rank,
@@ -771,17 +951,42 @@ def calculate_metrics(
     )
 
 
+def _covered_evidence(
+    case: EvaluationCase,
+    source_partitions: Sequence[PartitionReference] | frozenset[PartitionReference],
+    content: str,
+) -> set[PartitionReference]:
+    matches = case.expected_evidence.intersection(source_partitions)
+    if case.evidence_texts is None:
+        return set(matches)
+    normalized_content = normalize_evidence_text(content)
+    return {
+        evidence
+        for evidence in matches
+        if normalize_evidence_text(case.evidence_texts[evidence]) in normalized_content
+    }
+
+
 def _ideal_dcg(
-    expected: frozenset[PartitionReference],
-    evidence_pool: Sequence[frozenset[PartitionReference]],
+    case: EvaluationCase,
+    evidence_pool: Sequence[EvidencePoolItem | frozenset[PartitionReference]],
     top_k: int,
 ) -> float:
     # Con alpha=1 solo la prima occorrenza di un'evidenza produce guadagno.
-    remaining = [coverage.intersection(expected) for coverage in evidence_pool]
+    remaining = [
+        _covered_evidence(
+            case,
+            item.source_partitions if isinstance(item, EvidencePoolItem) else item,
+            item.content if isinstance(item, EvidencePoolItem) else "",
+        )
+        for item in evidence_pool
+    ]
     covered: set[PartitionReference] = set()
     result = 0.0
     for rank in range(1, top_k + 1):
-        best = max(remaining, key=lambda value: len(value - covered), default=frozenset())
+        best: set[PartitionReference] = max(
+            remaining, key=lambda value: len(value - covered), default=set()
+        )
         novel = best - covered
         if not novel:
             break
@@ -795,7 +1000,9 @@ def _case_report(
     case: EvaluationCase,
     ranking: Ranking,
     top_k: int,
-    evidence_pool: Sequence[frozenset[PartitionReference]],
+    evidence_pool: Sequence[EvidencePoolItem | frozenset[PartitionReference]],
+    parent_contexts: Mapping[ChunkReference, ParentContext] | None = None,
+    diagnostic_rankings: Sequence[Ranking] = (),
 ) -> tuple[dict[str, Any], CaseMetrics | None]:
     candidates = [
         {
@@ -806,8 +1013,10 @@ def _case_report(
             "covered_evidence": [
                 asdict(evidence)
                 for evidence in sorted(
-                    case.expected_evidence.intersection(
-                        item.candidate.source_partitions
+                    _covered_evidence(
+                        case,
+                        item.candidate.source_partitions,
+                        item.candidate.content,
                     ),
                     key=_evidence_key,
                 )
@@ -821,6 +1030,9 @@ def _case_report(
         "answerable": case.answerable,
         "candidate_count": len(candidates),
         "candidates": candidates,
+        "parent_expansion": _parent_expansion_report(
+            case, ranking, top_k, parent_contexts or {}
+        ),
     }
     if not case.answerable:
         return base, None
@@ -832,7 +1044,82 @@ def _case_report(
         "first_relevant_rank": metrics.first_relevant_rank,
         "covered_evidence": [asdict(item) for item in metrics.covered_evidence],
     }
+    if metrics.evidence_recall_at_k == 0:
+        source_has_evidence = any(
+            _covered_evidence(
+                case,
+                item.candidate.source_partitions,
+                item.candidate.content,
+            )
+            for source in diagnostic_rankings[:-1]
+            for item in source.candidates
+        )
+        base["failure_type"] = (
+            "ranking_miss" if source_has_evidence else "candidate_generation_miss"
+        )
     return base, metrics
+
+
+def _parent_expansion_report(
+    case: EvaluationCase,
+    ranking: Ranking,
+    top_k: int,
+    parent_contexts: Mapping[ChunkReference, ParentContext],
+) -> dict[str, Any]:
+    covered: set[PartitionReference] = set()
+    child_characters = 0
+    expanded_characters = 0
+    expanded_candidates = 0
+    for item in ranking.candidates[:top_k]:
+        candidate = item.candidate
+        child_characters += len(candidate.content)
+        parent = parent_contexts.get(candidate.parent) if candidate.parent else None
+        if parent is None:
+            content = candidate.content
+            sources: Sequence[PartitionReference] | frozenset[PartitionReference] = (
+                candidate.source_partitions
+            )
+        else:
+            expanded_candidates += 1
+            content = parent.content
+            sources = parent.source_partitions
+        expanded_characters += len(content)
+        covered.update(_covered_evidence(case, sources, content))
+    return {
+        "expanded_candidates": expanded_candidates,
+        "child_characters": child_characters,
+        "expanded_characters": expanded_characters,
+        "evidence_recall_at_k": (
+            0.0
+            if not case.expected_evidence
+            else len(covered) / len(case.expected_evidence)
+        ),
+    }
+
+
+def _expand_parents(
+    ranking: Ranking, parent_contexts: Mapping[ChunkReference, ParentContext]
+) -> Ranking:
+    candidates: list[RankedCandidate] = []
+    for item in ranking.candidates:
+        candidate = item.candidate
+        parent = parent_contexts.get(candidate.parent) if candidate.parent else None
+        expanded = (
+            candidate
+            if parent is None
+            else Candidate(
+                reference=candidate.reference,
+                content=parent.content,
+                source_partitions=tuple(parent.source_partitions),
+                parent=candidate.parent,
+            )
+        )
+        candidates.append(replace(item, candidate=expanded))
+    return replace(
+        ranking,
+        candidates=tuple(candidates),
+        configuration={**ranking.configuration, "parent_expansion": True},
+    )
 
 
 def _configuration_report(
@@ -844,8 +1131,7 @@ def _configuration_report(
     failures = [
         case["case_id"]
         for case in cases
-        if case["answerable"]
-        and case["metrics"]["evidence_recall_at_k"] == 0
+        if case["answerable"] and case["metrics"]["evidence_recall_at_k"] == 0
     ]
     count = len(metrics)
     divisor = count or 1
@@ -866,13 +1152,62 @@ def _configuration_report(
                 / len(negatives)
             ),
         },
+        "parent_expansion": {
+            "child_characters": sum(
+                case["parent_expansion"]["child_characters"] for case in cases
+            ),
+            "expanded_characters": sum(
+                case["parent_expansion"]["expanded_characters"] for case in cases
+            ),
+            "expanded_candidates": sum(
+                case["parent_expansion"]["expanded_candidates"] for case in cases
+            ),
+        },
     }
     return {
         "name": requested.name,
-        "retriever": requested.retriever,
+        "pipeline": list(requested.sources),
         "aggregate": aggregate,
         "cases": cases,
     }
+
+
+def _configuration_comparisons(
+    configurations: Sequence[Mapping[str, Any]],
+) -> list[dict[str, Any]]:
+    if len(configurations) < 2:
+        return []
+    baseline = configurations[0]
+    baseline_cases = {case["case_id"]: case for case in baseline["cases"]}
+    comparisons: list[dict[str, Any]] = []
+    for candidate in configurations[1:]:
+        deltas = []
+        for case in candidate["cases"]:
+            original = baseline_cases[case["case_id"]]
+            if not case["answerable"]:
+                continue
+            deltas.append(
+                {
+                    "case_id": case["case_id"],
+                    **{
+                        field: case["metrics"][field] - original["metrics"][field]
+                        for field in (
+                            "evidence_recall_at_k",
+                            "mrr_at_k",
+                            "alpha_ndcg_at_k",
+                        )
+                    },
+                }
+            )
+        comparisons.append(
+            {
+                "baseline": baseline["name"],
+                "candidate": candidate["name"],
+                "aggregate_delta": _aggregate_deltas(deltas),
+                "cases": deltas,
+            }
+        )
+    return comparisons
 
 
 def _run_id(configuration: BenchmarkConfiguration, dataset_digest: str) -> str:
@@ -882,6 +1217,7 @@ def _run_id(configuration: BenchmarkConfiguration, dataset_digest: str) -> str:
         "chunk_set_fingerprint": configuration.chunk_set_fingerprint,
         "top_k": configuration.top_k,
         "candidate_k": configuration.candidate_k or configuration.top_k,
+        "parent_expansion": configuration.parent_expansion,
         "configurations": [asdict(item) for item in configuration.configurations],
         "reranker": (
             asdict(configuration.reranker)
@@ -898,7 +1234,33 @@ def _retriever(kind: str, connection: Connection, fingerprint: str) -> Retriever
         return PostgresFtsRetriever(connection, fingerprint)
     if kind == "bm25":
         return Bm25Retriever(connection, fingerprint)
+    if kind in {"dense_small", "dense_large"}:
+        return DenseRetriever(
+            connection,
+            fingerprint,
+            CONFIGS[kind.removeprefix("dense_")],
+            OpenAIEmbeddingClient(),
+        )
     raise BenchmarkError(f"Retriever non supportato: {kind}.")
+
+
+def _retrieve_pipeline(
+    configuration: RetrieverConfiguration,
+    retrievers: Sequence[Retriever],
+    query: str,
+    candidate_k: int,
+    output_k: int,
+) -> tuple[Ranking, ...]:
+    rankings = tuple(retriever.retrieve(query, candidate_k) for retriever in retrievers)
+    if configuration.fusion is None:
+        return rankings
+    fusion = configuration.fusion
+    fused = (
+        RrfFusion(fusion.rank_constant).fuse(rankings, output_k)
+        if fusion.algorithm == "rrf"
+        else WeightedScoreFusion(fusion.weights).fuse(rankings, output_k)
+    )
+    return (*rankings, fused)
 
 
 def _evidence_key(value: PartitionReference) -> tuple[str, str]:

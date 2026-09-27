@@ -13,6 +13,7 @@ from ocio.benchmark import (
     BenchmarkConfiguration,
     BenchmarkError,
     EvaluationCase,
+    EvidencePoolItem,
     RerankerConfiguration,
     RetrieverConfiguration,
     _decision,
@@ -73,7 +74,9 @@ def test_metrics_use_real_chunk_coverage_for_the_ideal_ranking() -> None:
     first = PartitionReference("doc", "art-1")
     second = PartitionReference("doc", "art-2")
     case = EvaluationCase("case-1", "domanda", True, frozenset({first, second}))
-    ranking = _ranking((first, second),)
+    ranking = _ranking(
+        (first, second),
+    )
 
     metrics = calculate_metrics(
         case,
@@ -83,6 +86,74 @@ def test_metrics_use_real_chunk_coverage_for_the_ideal_ranking() -> None:
     )
 
     assert metrics.alpha_ndcg_at_k == 1
+
+
+def test_metrics_require_the_evidence_text_inside_the_chunk() -> None:
+    evidence = PartitionReference("doc", "art-1")
+    case = EvaluationCase(
+        "case-1",
+        "domanda",
+        True,
+        frozenset({evidence}),
+        {evidence: "passaggio decisivo"},
+    )
+    ranking = Ranking(
+        stage="test",
+        candidates=(
+            RankedCandidate(
+                Candidate(
+                    ChunkReference("doc", "chunk-1"),
+                    "Contesto generico della partizione.",
+                    (evidence,),
+                ),
+                score=1,
+                rank=1,
+            ),
+        ),
+        configuration={},
+        latency_ms=0,
+    )
+
+    metrics = calculate_metrics(
+        case,
+        ranking,
+        top_k=1,
+        evidence_pool=(
+            EvidencePoolItem(
+                frozenset({evidence}), ranking.candidates[0].candidate.content
+            ),
+        ),
+    )
+
+    assert metrics.evidence_recall_at_k == 0
+    assert metrics.mrr_at_k == 0
+
+
+def test_configuration_accepts_dense_rrf_pipeline(tmp_path: Path) -> None:
+    source = tmp_path / "benchmark.yaml"
+    source.write_text(
+        """schema_version: 1
+dataset: silver.jsonl
+chunk_set_fingerprint: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+top_k: 10
+candidate_k: 20
+output_directory: results
+configurations:
+  - name: hybrid
+    retrievers: [bm25, dense_small]
+    fusion:
+      algorithm: rrf
+      rank_constant: 60
+""",
+        encoding="utf-8",
+    )
+
+    configuration = load_configuration(source)
+
+    pipeline = configuration.configurations[0]
+    assert pipeline.sources == ("bm25", "dense_small")
+    assert pipeline.fusion is not None
+    assert pipeline.fusion.algorithm == "rrf"
 
 
 def test_configuration_paths_are_relative_to_the_yaml(
@@ -146,6 +217,10 @@ def test_paired_benchmark_retrieves_once_and_keeps_baseline_on_rerank_failure(
     monkeypatch.setattr(
         "ocio.benchmark._load_evidence_pool",
         lambda _connection, _fingerprint: (frozenset({evidence}),),
+    )
+    monkeypatch.setattr(
+        "ocio.benchmark._load_parent_contexts",
+        lambda _connection, _fingerprint: {},
     )
 
     class FakeRetriever:

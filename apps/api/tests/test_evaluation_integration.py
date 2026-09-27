@@ -52,6 +52,11 @@ def _insert_document(connection: Connection, code: str, *, enabled: bool) -> int
 
 
 def _case(document: str, partition: str, number: int) -> dict[str, Any]:
+    evidence_text = {
+        "art-1": "Contenuto utile.",
+        "art-other": "Altro contenuto.",
+        "art-disabled": "Contenuto disabilitato.",
+    }.get(partition, "Contenuto utile.")
     return {
         "schema_version": 1,
         "id": f"case-{number}",
@@ -60,7 +65,11 @@ def _case(document: str, partition: str, number: int) -> dict[str, Any]:
         "difficulty": "easy",
         "answerable": True,
         "expected_evidence": [
-            {"document_code": document, "partition_identifier": partition}
+            {
+                "document_code": document,
+                "partition_identifier": partition,
+                "evidence_text": evidence_text,
+            }
         ],
     }
 

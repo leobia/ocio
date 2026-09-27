@@ -1,0 +1,15 @@
+schema_version: 1
+dataset: silver-set-v1.jsonl
+chunk_set_fingerprint: dc2c0290603eb4e218fcfe31d13942bde626a82f74c40eb7f7dae39c052d8cf9
+top_k: 10
+candidate_k: 20
+output_directory: ../artifacts/benchmarks
+configurations:
+  - name: structural-dense-large
+    retriever: dense_large
+reranker:
+  provider: cohere
+  model: rerank-v4.0-pro
+  search_unit_price_usd: 0.0025
+  price_snapshot_date: "2026-09-27"
+  request_interval_seconds: 7.0

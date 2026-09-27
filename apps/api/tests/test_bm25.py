@@ -280,6 +280,7 @@ def test_benchmark_runs_fts_and_bm25_on_the_same_chunk_set(
                     {
                         "document_code": document_code,
                         "partition_identifier": "articolo-1/comma-1",
+                        "evidence_text": "Valutazione dei rischi",
                     }
                 ],
             }

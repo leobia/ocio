@@ -75,10 +75,30 @@ ocio valida-silver-set ../../evaluation/silver-set-v1.jsonl
 Il validatore accumula tutti gli errori e termina con exit status `1` quando il
 file non è valido. Gli hard negative richiedono comunque revisione: la loro
 non-rispondibilità non può essere dimostrata dal solo controllo strutturale.
+Ogni evidenza rispondibile include `evidence_text`: validazione e metriche
+richiedono che l'estratto appartenga alla partizione e sia presente nel chunk.
 
-## Benchmark retrieval con reranking Cohere
+## Benchmark retrieval
 
-Confronta i primi 10 risultati BM25 con Cohere sugli stessi 20 candidati. La
+Una configurazione può selezionare `postgres_fts`, `bm25`, `dense_small` o
+`dense_large`. Più retriever possono essere composti con fusion RRF o pesata:
+
+```yaml
+configurations:
+  - name: hybrid
+    retrievers: [bm25, dense_large]
+    fusion:
+      algorithm: rrf
+      rank_constant: 60
+```
+
+La trace conserva le graduatorie dei singoli retriever e quella fusa. Il report
+include anche il costo in caratteri dell'espansione ai parent; impostare
+`parent_expansion: true` la applica prima della valutazione e del reranker.
+
+### Reranking Cohere
+
+Confronta i primi 10 risultati della pipeline con Cohere sugli stessi 20 candidati. La
 chiave è letta soltanto da `COHERE_API_KEY` e non viene scritta negli artefatti:
 
 ```yaml

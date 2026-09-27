@@ -26,7 +26,11 @@ def case(**changes: Any) -> dict[str, Any]:
         "difficulty": "easy",
         "answerable": True,
         "expected_evidence": [
-            {"document_code": "documento", "partition_identifier": "art-1"}
+            {
+                "document_code": "documento",
+                "partition_identifier": "art-1",
+                "evidence_text": "testo rilevante",
+            }
         ],
     }
     value.update(changes)
@@ -34,7 +38,10 @@ def case(**changes: Any) -> dict[str, Any]:
 
 
 def corpus() -> CorpusIndex:
-    return CorpusIndex({"documento": True}, frozenset({("documento", "art-1")}))
+    reference = ("documento", "art-1")
+    return CorpusIndex(
+        {"documento": True}, frozenset({reference}), {reference: "Testo rilevante."}
+    )
 
 
 def lines(*cases: dict[str, Any]) -> list[str]:
@@ -115,6 +122,12 @@ def test_versioned_seed_matches_schema_and_exported_corpus() -> None:
             (str(row["document_code"]), str(row["partition_identifier"]))
             for row in corpus_rows
         ),
+        {
+            (str(row["document_code"]), str(row["partition_identifier"])): str(
+                row["partition_text"]
+            )
+            for row in corpus_rows
+        },
     )
 
     report = validate_lines(

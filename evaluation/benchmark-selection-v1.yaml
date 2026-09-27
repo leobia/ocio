@@ -1,0 +1,23 @@
+schema_version: 1
+dataset: silver-set-v1.jsonl
+chunk_set_fingerprint: dc2c0290603eb4e218fcfe31d13942bde626a82f74c40eb7f7dae39c052d8cf9
+top_k: 10
+candidate_k: 20
+output_directory: ../artifacts/benchmarks
+configurations:
+  - name: bm25
+    retriever: bm25
+  - name: dense-small
+    retriever: dense_small
+  - name: dense-large
+    retriever: dense_large
+  - name: bm25-dense-small-rrf
+    retrievers: [bm25, dense_small]
+    fusion:
+      algorithm: rrf
+      rank_constant: 60
+  - name: bm25-dense-large-rrf
+    retrievers: [bm25, dense_large]
+    fusion:
+      algorithm: rrf
+      rank_constant: 60
