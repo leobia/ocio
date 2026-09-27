@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 
 from ocio import cli
+from ocio.benchmark import BenchmarkArtifacts
 from ocio.embeddings import EmbeddingImportReport, EmbeddingReport
 
 
@@ -28,6 +29,7 @@ def test_help_is_available() -> None:
     assert "valida-silver-set" in result.stdout
     assert "genera-embedding" in result.stdout
     assert "importa-embedding" in result.stdout
+    assert "benchmark-retrieval" in result.stdout
 
 
 def test_embedding_commands_report_their_results(
@@ -59,3 +61,23 @@ def test_embedding_commands_report_their_results(
     monkeypatch.setattr(sys, "argv", ["ocio", "importa-embedding", str(cache)])
     assert cli.main() == 0
     assert "Embedding importati: 3" in capsys.readouterr().out
+
+
+def test_benchmark_command_reports_artifacts(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    artifacts = BenchmarkArtifacts(
+        "benchmark-1",
+        tmp_path / "manifest.json",
+        tmp_path / "trace.jsonl",
+        tmp_path / "report.json",
+    )
+    monkeypatch.setattr(cli, "run_benchmark", lambda _path: artifacts)
+    monkeypatch.setattr(sys, "argv", ["ocio", "benchmark-retrieval", "config.yaml"])
+
+    assert cli.main() == 0
+    output = capsys.readouterr().out
+    assert "benchmark-1" in output
+    assert str(artifacts.manifest) in output

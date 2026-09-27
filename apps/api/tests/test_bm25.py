@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import json
 import math
 from collections.abc import Iterator
+from pathlib import Path
 from typing import Any, cast
 from uuid import uuid4
 
@@ -11,6 +13,11 @@ import pytest
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Connection
 
+from ocio.benchmark import (
+    BenchmarkConfiguration,
+    RetrieverConfiguration,
+    execute_benchmark,
+)
 from ocio.bm25 import (
     Bm25Error,
     Bm25Retriever,
@@ -237,6 +244,69 @@ def test_candidate_domain_matches_fts_and_excludes_parent_and_disabled_document(
     assert Bm25Retriever(connection, fingerprint).retrieve(
         "rischi", 100
     ).candidates == ()
+
+
+@pytest.mark.integration
+def test_benchmark_runs_fts_and_bm25_on_the_same_chunk_set(
+    connection: Connection, tmp_path: Path
+) -> None:
+    fingerprint, _, document_id, acquisition_id = _seed(connection)
+    document_code = str(
+        connection.execute(
+            text("SELECT codice FROM documenti WHERE id = :id"), {"id": document_id}
+        ).scalar_one()
+    )
+    connection.execute(
+        text(
+            "INSERT INTO partizioni_documentali "
+            "(documento_id, acquisizione_fonte_id, identificatore, tipo, ordine, "
+            " contenuto) VALUES "
+            "(:document_id, :acquisition_id, 'articolo-1/comma-1', "
+            " 'comma', 1, 'Valutazione dei rischi')"
+        ),
+        {"document_id": document_id, "acquisition_id": acquisition_id},
+    )
+    dataset = tmp_path / "silver.jsonl"
+    dataset.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "id": "case-1",
+                "kind": "grounded",
+                "query": "rischi",
+                "difficulty": "easy",
+                "answerable": True,
+                "expected_evidence": [
+                    {
+                        "document_code": document_code,
+                        "partition_identifier": "articolo-1/comma-1",
+                    }
+                ],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    configuration = BenchmarkConfiguration(
+        dataset=dataset,
+        chunk_set_fingerprint=fingerprint,
+        top_k=10,
+        output_directory=tmp_path / "results",
+        configurations=(
+            RetrieverConfiguration("fts", "postgres_fts"),
+            RetrieverConfiguration("bm25", "bm25"),
+        ),
+    )
+
+    artifacts = execute_benchmark(configuration, connection)
+
+    report = json.loads(artifacts.report.read_text(encoding="utf-8"))
+    assert [item["name"] for item in report["configurations"]] == ["fts", "bm25"]
+    assert all(
+        item["aggregate"]["evidence_recall_at_k"] == 1
+        for item in report["configurations"]
+    )
+    assert len(artifacts.trace.read_text(encoding="utf-8").splitlines()) == 2
 
 
 @pytest.mark.integration

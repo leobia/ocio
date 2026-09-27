@@ -6,6 +6,7 @@ import argparse
 from pathlib import Path
 
 from ocio.acquisition import AcquisitionError, import_source_acquisitions
+from ocio.benchmark import BenchmarkError, run_benchmark
 from ocio.chunking import (
     ChunkingConfig,
     ChunkingError,
@@ -86,6 +87,11 @@ def main() -> int:
         default=default_schema_path(),
         help="Percorso del JSON Schema del silver set",
     )
+    benchmark = commands.add_parser(
+        "benchmark-retrieval",
+        help="Esegue configurazioni confrontabili di retrieval",
+    )
+    benchmark.add_argument("configuration", type=Path)
     args = parser.parse_args()
     if args.command == "importa-corpus":
         try:
@@ -145,4 +151,15 @@ def main() -> int:
         if not validation_report.valid:
             parser.exit(1, format_validation_report(validation_report) + "\n")
         print(format_validation_report(validation_report))
+    elif args.command == "benchmark-retrieval":
+        try:
+            artifacts = run_benchmark(args.configuration)
+        except BenchmarkError as error:
+            parser.exit(1, f"Benchmark fallito: {error}\n")
+        print(
+            f"Benchmark completato: {artifacts.run_id}\n"
+            f"Manifest: {artifacts.manifest}\n"
+            f"Trace: {artifacts.trace}\n"
+            f"Report: {artifacts.report}"
+        )
     return 0

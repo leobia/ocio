@@ -75,3 +75,27 @@ ocio valida-silver-set ../../evaluation/silver-set-v1.jsonl
 Il validatore accumula tutti gli errori e termina con exit status `1` quando il
 file non è valido. Gli hard negative richiedono comunque revisione: la loro
 non-rispondibilità non può essere dimostrata dal solo controllo strutturale.
+
+## Benchmark retrieval
+
+Confronta PostgreSQL FTS e BM25 sullo stesso silver set e insieme di chunk:
+
+```yaml
+schema_version: 1
+dataset: ../../evaluation/silver-set-v1.jsonl
+chunk_set_fingerprint: <sha256>
+top_k: 10
+output_directory: ../../artifacts/benchmarks
+configurations:
+  - name: fts
+    retriever: postgres_fts
+  - name: bm25
+    retriever: bm25
+```
+
+```sh
+ocio benchmark-retrieval benchmark.yaml
+```
+
+Il comando produce manifest JSON, trace JSONL e report JSON con Evidence
+Recall@k, MRR@k e alpha-nDCG@k. Gli hard negative sono riportati separatamente.
