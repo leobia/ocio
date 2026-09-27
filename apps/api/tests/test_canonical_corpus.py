@@ -89,6 +89,7 @@ def test_schema_tracks_current_documents_and_source_acquisitions() -> None:
             "acquisizione_fonte_id",
             "identificatore",
             "tipo",
+            "marcatore",
             "rubrica",
             "ordine",
             "contenuto",

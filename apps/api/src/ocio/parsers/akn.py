@@ -12,6 +12,7 @@ from ocio.parsing import (
     ParsedDocument,
     ParsedPartition,
     document_from_metadata,
+    legal_marker,
     normalize_whitespace,
 )
 
@@ -204,6 +205,7 @@ def parse_akn(
                 tipo=kind,
                 ordine=order,
                 contenuto=content if content is not None else _body_text(element),
+                marcatore=legal_marker(kind, label),
                 genitore=parent,
                 rubrica=rubric or None,
                 localizzatore=locator,

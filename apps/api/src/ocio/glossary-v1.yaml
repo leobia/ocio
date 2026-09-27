@@ -1,0 +1,50 @@
+version: 1
+
+documents:
+  dlgs_81_2008:
+    - D.Lgs. 81/2008
+    - D.Lgs. 81/08
+    - DLgs 81/2008
+    - decreto legislativo 81/2008
+    - testo unico sicurezza
+    - TU 81
+  dpr_462_2001:
+    - D.P.R. 462/2001
+    - DPR 462/2001
+  dpr_177_2011:
+    - D.P.R. 177/2011
+    - DPR 177/2011
+  dm_388_2003:
+    - D.M. 388/2003
+    - DM 388/2003
+  dm_132_2024:
+    - D.M. 132/2024
+    - DM 132/2024
+  dm_1_settembre_2021:
+    - D.M. 1 settembre 2021
+    - DM 1 settembre 2021
+  dm_2_settembre_2021:
+    - D.M. 2 settembre 2021
+    - DM 2 settembre 2021
+  dm_3_settembre_2021:
+    - D.M. 3 settembre 2021
+    - DM 3 settembre 2021
+  dm_11_04_2011:
+    - D.M. 11 aprile 2011
+    - DM 11 aprile 2011
+  dm_13_09_2024:
+    - D.M. 13 settembre 2024
+    - DM 13 settembre 2024
+  accordo_59_csr_2025:
+    - Accordo 59/CSR/2025
+    - Accordo Stato-Regioni 59/CSR/2025
+
+terms:
+  DPI: dispositivi di protezione individuale
+  DVR: documento di valutazione dei rischi
+  DUVRI: documento unico di valutazione dei rischi da interferenze
+  RSPP: responsabile del servizio di prevenzione e protezione
+  ASPP: addetto al servizio di prevenzione e protezione
+  RLS: rappresentante dei lavoratori per la sicurezza
+  SPP: servizio di prevenzione e protezione
+  MMC: movimentazione manuale dei carichi

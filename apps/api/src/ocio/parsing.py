@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from datetime import date
 from typing import Any
@@ -15,11 +16,35 @@ class ParsedPartition:
     tipo: str
     ordine: int
     contenuto: str
+    marcatore: str | None = None
     genitore: str | None = None
     rubrica: str | None = None
     localizzatore: dict[str, Any] = field(default_factory=dict)
     vigente_dal: date | None = None
     vigente_al: date | None = None
+
+
+def legal_marker(kind: str, label: str) -> str | None:
+    """Estrae il marcatore giuridico senza dipendere dal formato della fonte."""
+    patterns = {
+        "articolo": r"(?:art(?:icolo)?)[._\s-]*(\d+(?:-(?:bis|ter|quater))?)",
+        "comma": r"(?:comma|para)[._\s-]*(\d+(?:-(?:bis|ter|quater))?)",
+        "lettera": r"(?:lettera|point)[._\s-]*([a-z])",
+    }
+    pattern = patterns.get(kind)
+    if pattern:
+        match = re.search(pattern, label, re.IGNORECASE)
+        if match:
+            return match.group(1).casefold()
+
+    cleaned = label.casefold().strip().strip("(). ")
+    if kind == "articolo" and re.fullmatch(r"\d+(?:-(?:bis|ter|quater))?", cleaned):
+        return cleaned
+    if kind == "comma" and re.fullmatch(r"\d+(?:-(?:bis|ter|quater))?", cleaned):
+        return cleaned
+    if kind == "lettera" and re.fullmatch(r"[a-z]", cleaned):
+        return cleaned
+    return None
 
 
 @dataclass(frozen=True, slots=True)

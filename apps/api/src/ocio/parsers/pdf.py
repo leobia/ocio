@@ -16,6 +16,7 @@ from ocio.parsing import (
     ParsedDocument,
     ParsedPartition,
     document_from_metadata,
+    legal_marker,
     normalize_whitespace,
 )
 
@@ -256,6 +257,7 @@ class _DocumentBuilder:
                 tipo=kind,
                 ordine=self.orders[parent],
                 contenuto=content,
+                marcatore=legal_marker(kind, identifier),
                 genitore=parent,
                 rubrica=rubric,
                 localizzatore=locator,

@@ -165,15 +165,17 @@ def _store_document(
             text(
                 "INSERT INTO partizioni_documentali "
                 "(documento_id, partizione_genitore_id, acquisizione_fonte_id, "
-                " identificatore, tipo, rubrica, ordine, contenuto, localizzatore, "
+                " identificatore, tipo, marcatore, rubrica, ordine, contenuto, localizzatore, "
                 " vigente_dal, vigente_al) "
                 "VALUES (:documento_id, :parent_id, :acquisition_id, :identifier, "
-                " :tipo, :rubrica, :ordine, :contenuto, CAST(:localizzatore AS jsonb), "
+                " :tipo, :marcatore, :rubrica, :ordine, :contenuto, "
+                " CAST(:localizzatore AS jsonb), "
                 " :vigente_dal, :vigente_al) "
                 "ON CONFLICT (documento_id, identificatore) DO UPDATE SET "
                 "partizione_genitore_id = EXCLUDED.partizione_genitore_id, "
                 "acquisizione_fonte_id = EXCLUDED.acquisizione_fonte_id, "
-                "tipo = EXCLUDED.tipo, rubrica = EXCLUDED.rubrica, "
+                "tipo = EXCLUDED.tipo, marcatore = EXCLUDED.marcatore, "
+                "rubrica = EXCLUDED.rubrica, "
                 "ordine = EXCLUDED.ordine, contenuto = EXCLUDED.contenuto, "
                 "localizzatore = EXCLUDED.localizzatore, "
                 "vigente_dal = EXCLUDED.vigente_dal, vigente_al = EXCLUDED.vigente_al "
@@ -185,6 +187,7 @@ def _store_document(
                 "acquisition_id": acquisition_ids[source_path],
                 "identifier": partition.identifier,
                 "tipo": partition.tipo,
+                "marcatore": partition.marcatore,
                 "rubrica": partition.rubrica,
                 "ordine": partition.ordine,
                 "contenuto": partition.contenuto,

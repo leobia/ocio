@@ -32,8 +32,11 @@ def test_akn_fixture_reconstructs_article_comma_and_letter() -> None:
     letter = partition_by_id(document, "art_11__para_1.__point_a")
 
     assert article.tipo == "articolo"
+    assert article.marcatore == "11"
     assert comma.tipo == "comma"
+    assert comma.marcatore == "1"
     assert letter.tipo == "lettera"
+    assert letter.marcatore == "a"
     assert comma.genitore == article.identifier
     assert letter.genitore == comma.identifier
     assert "finanziamento" in letter.contenuto.casefold()
@@ -47,6 +50,7 @@ def test_gazzetta_html_preserves_articles_annexes_and_source_paths() -> None:
     annex = partition_by_id(document, "allegato-i")
 
     assert article.tipo == "articolo"
+    assert article.marcatore == "1"
     assert article.contenuto
     assert annex.tipo == "allegato"
     assert annex.contenuto
@@ -82,6 +86,8 @@ def test_pdf_faq_and_composite_decrees_keep_structure_and_page_spans() -> None:
     assert answer.genitore == question.identifier
     assert answer.localizzatore["pagina_da"] == 1
     assert comma.genitore == article.identifier
+    assert article.marcatore == "1"
+    assert comma.marcatore == "1"
     assert "stabilisce" in comma.contenuto
     assert article.localizzatore["pagina_da"] == 5
     assert article.localizzatore["spans"][0]["page"] == 5

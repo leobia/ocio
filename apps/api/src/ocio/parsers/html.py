@@ -13,6 +13,7 @@ from ocio.parsing import (
     ParsedDocument,
     ParsedPartition,
     document_from_metadata,
+    legal_marker,
     normalize_whitespace,
     parse_iso_date,
 )
@@ -167,6 +168,7 @@ def parse_html(
                     tipo="articolo",
                     ordine=sibling_order,
                     contenuto=content,
+                    marcatore=legal_marker("articolo", part_name),
                     rubrica=rubric,
                     localizzatore=locator,
                 )
@@ -189,6 +191,7 @@ def parse_html(
                 tipo="allegato",
                 ordine=sibling_order,
                 contenuto=normalize_whitespace(raw_text),
+                marcatore=suffix,
                 rubrica=part_name,
                 localizzatore=locator,
                 vigente_dal=parse_iso_date(effective_from),
