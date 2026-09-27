@@ -30,6 +30,13 @@ from ocio.evaluation import (
     load_corpus_index,
     validate_lines,
 )
+from ocio.jina_reranker import (
+    JINA_MODEL,
+    JinaRerankError,
+)
+from ocio.jina_reranker import (
+    reranker_from_environment as jina_reranker_from_environment,
+)
 from ocio.postgres_fts import PostgresFtsRetriever
 from ocio.retrieval import (
     PartitionReference,
@@ -61,8 +68,10 @@ class RetrieverConfiguration:
 
 @dataclass(frozen=True, slots=True)
 class RerankerConfiguration:
+    provider: str = "cohere"
     model: str = COHERE_MODEL
-    search_unit_price_usd: float = SEARCH_UNIT_PRICE_USD
+    search_unit_price_usd: float | None = SEARCH_UNIT_PRICE_USD
+    token_price_usd: float | None = None
     price_snapshot_date: str = PRICE_SNAPSHOT_DATE
     request_interval_seconds: float = 0.0
 
@@ -193,19 +202,30 @@ def load_configuration(source: Path) -> BenchmarkConfiguration:
 def _reranker_configuration(value: object) -> RerankerConfiguration | None:
     if value is None:
         return None
-    expected = {
-        "provider",
-        "model",
-        "search_unit_price_usd",
-        "price_snapshot_date",
-        "request_interval_seconds",
-    }
-    if not isinstance(value, Mapping) or set(value) != expected:
-        raise BenchmarkError(f"reranker deve contenere soltanto {sorted(expected)}.")
-    if value["provider"] != "cohere" or value["model"] != COHERE_MODEL:
-        raise BenchmarkError(f"Il solo reranker supportato è Cohere {COHERE_MODEL}.")
-    if value["search_unit_price_usd"] != SEARCH_UNIT_PRICE_USD:
-        raise BenchmarkError("search_unit_price_usd non coincide con lo snapshot.")
+    common = {"provider", "model", "price_snapshot_date", "request_interval_seconds"}
+    if not isinstance(value, Mapping) or not common.issubset(value):
+        raise BenchmarkError(f"reranker deve contenere almeno {sorted(common)}.")
+    provider = value["provider"]
+    if provider == "cohere":
+        expected = common | {"search_unit_price_usd"}
+        if set(value) != expected or value["model"] != COHERE_MODEL:
+            raise BenchmarkError(f"Configurazione Cohere {COHERE_MODEL} non valida.")
+        if value["search_unit_price_usd"] != SEARCH_UNIT_PRICE_USD:
+            raise BenchmarkError("search_unit_price_usd non coincide con lo snapshot.")
+        search_unit_price: float | None = SEARCH_UNIT_PRICE_USD
+        token_price: float | None = None
+    elif provider == "jina":
+        expected = common | {"token_price_usd"}
+        if set(value) != expected or value["model"] != JINA_MODEL:
+            raise BenchmarkError(f"Configurazione Jina {JINA_MODEL} non valida.")
+        if value["token_price_usd"] is not None:
+            raise BenchmarkError(
+                "token_price_usd deve essere null finché non esiste una tariffa pubblica."
+            )
+        search_unit_price = None
+        token_price = None
+    else:
+        raise BenchmarkError("Provider reranker non supportato; usare cohere o jina.")
     if value["price_snapshot_date"] != PRICE_SNAPSHOT_DATE:
         raise BenchmarkError("price_snapshot_date non coincide con lo snapshot.")
     interval = value["request_interval_seconds"]
@@ -216,7 +236,14 @@ def _reranker_configuration(value: object) -> RerankerConfiguration | None:
         or float(interval) < 0
     ):
         raise BenchmarkError("request_interval_seconds deve essere non negativo.")
-    return RerankerConfiguration(request_interval_seconds=float(interval))
+    return RerankerConfiguration(
+        provider=str(provider),
+        model=str(value["model"]),
+        search_unit_price_usd=search_unit_price,
+        token_price_usd=token_price,
+        price_snapshot_date=str(value["price_snapshot_date"]),
+        request_interval_seconds=float(interval),
+    )
 
 
 def _relative_path(source: Path, value: object, field: str) -> Path:
@@ -232,8 +259,12 @@ def run_benchmark(configuration_path: Path) -> BenchmarkArtifacts:
     live_reranker: Reranker | None = None
     if configuration.reranker is not None:
         try:
-            live_reranker = reranker_from_environment()
-        except CohereRerankError as error:
+            live_reranker = (
+                reranker_from_environment()
+                if configuration.reranker.provider == "cohere"
+                else jina_reranker_from_environment()
+            )
+        except (CohereRerankError, JinaRerankError) as error:
             raise BenchmarkError(str(error)) from error
     try:
         engine = create_engine(database_url())
@@ -390,6 +421,7 @@ def _execute_paired_benchmark(
     rerank_latencies: list[float] = []
     rerank_end_to_end_latencies: list[float] = []
     billed_search_units = 0.0
+    total_tokens = 0
     source_effective: dict[str, Any] | None = None
     rerank_effective: dict[str, Any] | None = None
     previous_rerank_started_at: float | None = None
@@ -438,17 +470,18 @@ def _execute_paired_benchmark(
             rerank_latencies.append(reranked.latency_ms)
             rerank_end_to_end_latencies.append(source.latency_ms + reranked.latency_ms)
             billed_search_units += float(
-                reranked.configuration["billed_search_units"]
+                reranked.configuration.get("billed_search_units", 0.0)
             )
+            total_tokens += int(reranked.configuration.get("total_tokens", 0))
             effective = {
                 key: value
                 for key, value in reranked.configuration.items()
-                if key != "billed_search_units"
+                if key not in {"billed_search_units", "total_tokens"}
             }
             if rerank_effective is None:
                 rerank_effective = effective
             elif rerank_effective != effective:
-                raise BenchmarkError("La configurazione Cohere cambia fra i casi.")
+                raise BenchmarkError("La configurazione reranker cambia fra i casi.")
             rerank_report, rerank_case_metrics = _case_report(
                 case, reranked, configuration.top_k, evidence_pool
             )
@@ -481,7 +514,8 @@ def _execute_paired_benchmark(
     trace_path = output / f"{run_id}.trace.jsonl"
     report_path = output / f"{run_id}.report.json"
     manifest_path = output / f"{run_id}.manifest.json"
-    price = rerank_configuration.search_unit_price_usd
+    search_unit_price = rerank_configuration.search_unit_price_usd
+    token_price = rerank_configuration.token_price_usd
     manifest = {
         "schema_version": BENCHMARK_ARTIFACT_SCHEMA_VERSION,
         "trace_schema_version": 2,
@@ -494,12 +528,13 @@ def _execute_paired_benchmark(
         "variants": [
             {"name": "bm25-baseline", "source": source_effective},
             {
-                "name": "cohere-rerank",
+                "name": f"{rerank_configuration.provider}-rerank",
                 "source": source_effective,
                 "reranker": {
-                    "provider": "cohere",
+                    "provider": rerank_configuration.provider,
                     "model": rerank_configuration.model,
-                    "search_unit_price_usd": price,
+                    "search_unit_price_usd": search_unit_price,
+                    "token_price_usd": token_price,
                     "price_snapshot_date": rerank_configuration.price_snapshot_date,
                     "request_interval_seconds": (
                         rerank_configuration.request_interval_seconds
@@ -539,8 +574,16 @@ def _execute_paired_benchmark(
                 rerank_end_to_end_latencies
             ),
             "billed_search_units": billed_search_units,
-            "estimated_cost_usd": billed_search_units * price,
-            "search_unit_price_usd": price,
+            "total_tokens": total_tokens,
+            "estimated_cost_usd": (
+                billed_search_units * search_unit_price
+                if search_unit_price is not None
+                else total_tokens * token_price
+                if token_price is not None
+                else None
+            ),
+            "search_unit_price_usd": search_unit_price,
+            "token_price_usd": token_price,
             "price_snapshot_date": rerank_configuration.price_snapshot_date,
             "cases": rerank_cases,
         },

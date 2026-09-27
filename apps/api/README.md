@@ -110,3 +110,14 @@ unit fatturate e costo stimato. Il prezzo registrato è lo snapshot del
 baseline, registra il caso fallito e rende la decisione `inconclusive`.
 L'intervallo di 7 secondi rispetta il limite della trial key di 10 richieste
 al minuto e non viene incluso nella latenza della chiamata Cohere.
+
+Per confrontare Jina `jina-reranker-v3.5` sugli stessi candidati:
+
+```sh
+JINA_API_KEY=<api-key> ocio benchmark-retrieval ../../evaluation/benchmark-jina-v1.yaml
+```
+
+Jina riporta i token processati. Lo snapshot non assegna un costo USD perché
+la tariffa pubblica dipende dal pacchetto di token acquistato. La configurazione
+usa 7 secondi tra richieste per restare sotto il limite gratuito di 100.000
+token al minuto con 20 candidati.
