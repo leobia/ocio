@@ -37,10 +37,30 @@ class Candidate:
 
 
 @dataclass(frozen=True, slots=True)
+class FusionContribution:
+    source_index: int
+    stage: str
+    rank: int
+    original_score: float
+    contribution: float
+
+    def __post_init__(self) -> None:
+        if self.source_index < 0:
+            raise ValueError("source_index must be non-negative")
+        if self.rank < 1:
+            raise ValueError("rank must be positive")
+        if not math.isfinite(self.original_score):
+            raise ValueError("original_score must be finite")
+        if not math.isfinite(self.contribution) or self.contribution < 0:
+            raise ValueError("contribution must be finite and non-negative")
+
+
+@dataclass(frozen=True, slots=True)
 class RankedCandidate:
     candidate: Candidate
     score: float
     rank: int
+    contributions: tuple[FusionContribution, ...] = ()
 
     def __post_init__(self) -> None:
         if self.rank < 1:
@@ -171,4 +191,14 @@ def _ranked_candidate_from_dict(value: dict[str, Any]) -> RankedCandidate:
         ),
         score=float(value["score"]),
         rank=int(value["rank"]),
+        contributions=tuple(
+            FusionContribution(
+                source_index=int(item["source_index"]),
+                stage=str(item["stage"]),
+                rank=int(item["rank"]),
+                original_score=float(item["original_score"]),
+                contribution=float(item["contribution"]),
+            )
+            for item in value.get("contributions", ())
+        ),
     )
