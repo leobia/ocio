@@ -75,6 +75,22 @@ def test_trace_round_trip_is_lossless(tmp_path: Path) -> None:
     assert len(output.read_text(encoding="utf-8").splitlines()) == 1
 
 
+def test_trace_round_trip_preserves_a_partial_rerank_failure(tmp_path: Path) -> None:
+    run = RetrievalRun(
+        run_id="run-1",
+        case_id="silver-0001",
+        query="domanda",
+        chunk_set_fingerprint="a" * 64,
+        rankings=(Ranking("bm25", (), {"candidate_k": 20}, 1.0),),
+        rerank_error="Cohere unavailable",
+    )
+    output = tmp_path / "trace.jsonl"
+
+    write_trace([run], output)
+
+    assert read_trace(output) == (run,)
+
+
 def test_ranking_requires_contiguous_one_based_ranks() -> None:
     with pytest.raises(ValueError, match="contiguous 1-based rank"):
         Ranking(

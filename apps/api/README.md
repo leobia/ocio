@@ -76,26 +76,37 @@ Il validatore accumula tutti gli errori e termina con exit status `1` quando il
 file non è valido. Gli hard negative richiedono comunque revisione: la loro
 non-rispondibilità non può essere dimostrata dal solo controllo strutturale.
 
-## Benchmark retrieval
+## Benchmark retrieval con reranking Cohere
 
-Confronta PostgreSQL FTS e BM25 sullo stesso silver set e insieme di chunk:
+Confronta i primi 10 risultati BM25 con Cohere sugli stessi 20 candidati. La
+chiave è letta soltanto da `COHERE_API_KEY` e non viene scritta negli artefatti:
 
 ```yaml
 schema_version: 1
 dataset: ../../evaluation/silver-set-v1.jsonl
 chunk_set_fingerprint: <sha256>
 top_k: 10
+candidate_k: 20
 output_directory: ../../artifacts/benchmarks
 configurations:
-  - name: fts
-    retriever: postgres_fts
   - name: bm25
     retriever: bm25
+reranker:
+  provider: cohere
+  model: rerank-v4.0-pro
+  search_unit_price_usd: 0.0025
+  price_snapshot_date: "2026-09-27"
+  request_interval_seconds: 7.0
 ```
 
 ```sh
-ocio benchmark-retrieval benchmark.yaml
+COHERE_API_KEY=<trial-key> ocio benchmark-retrieval benchmark.yaml
 ```
 
 Il comando produce manifest JSON, trace JSONL e report JSON con Evidence
-Recall@k, MRR@k e alpha-nDCG@k. Gli hard negative sono riportati separatamente.
+Recall@10, MRR@10, alpha-nDCG@10, delta accoppiati, Recall@20, latenze, search
+unit fatturate e costo stimato. Il prezzo registrato è lo snapshot del
+2026-09-27: USD 2,50 per 1.000 search unit. Un errore Cohere lascia valida la
+baseline, registra il caso fallito e rende la decisione `inconclusive`.
+L'intervallo di 7 secondi rispetta il limite della trial key di 10 richieste
+al minuto e non viene incluso nella latenza della chiamata Cohere.

@@ -6,6 +6,8 @@ import hashlib
 import json
 import math
 import re
+import statistics
+import time
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import asdict, dataclass, replace
 from pathlib import Path
@@ -16,6 +18,11 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Connection
 
 from ocio.bm25 import Bm25Retriever
+from ocio.cohere_reranker import (
+    COHERE_MODEL,
+    CohereRerankError,
+    reranker_from_environment,
+)
 from ocio.database import database_url
 from ocio.evaluation import (
     default_schema_path,
@@ -27,6 +34,7 @@ from ocio.postgres_fts import PostgresFtsRetriever
 from ocio.retrieval import (
     PartitionReference,
     Ranking,
+    Reranker,
     RetrievalRun,
     RetrievalTraceError,
     Retriever,
@@ -34,8 +42,11 @@ from ocio.retrieval import (
 )
 
 BENCHMARK_SCHEMA_VERSION = 1
+BENCHMARK_ARTIFACT_SCHEMA_VERSION = 2
 ALPHA = 1.0
 _RETRIEVERS = {"postgres_fts", "bm25"}
+SEARCH_UNIT_PRICE_USD = 2.50 / 1000
+PRICE_SNAPSHOT_DATE = "2026-09-27"
 
 
 class BenchmarkError(Exception):
@@ -49,12 +60,22 @@ class RetrieverConfiguration:
 
 
 @dataclass(frozen=True, slots=True)
+class RerankerConfiguration:
+    model: str = COHERE_MODEL
+    search_unit_price_usd: float = SEARCH_UNIT_PRICE_USD
+    price_snapshot_date: str = PRICE_SNAPSHOT_DATE
+    request_interval_seconds: float = 0.0
+
+
+@dataclass(frozen=True, slots=True)
 class BenchmarkConfiguration:
     dataset: Path
     chunk_set_fingerprint: str
     top_k: int
     output_directory: Path
     configurations: tuple[RetrieverConfiguration, ...]
+    candidate_k: int | None = None
+    reranker: RerankerConfiguration | None = None
     schema_version: int = BENCHMARK_SCHEMA_VERSION
 
 
@@ -100,6 +121,8 @@ def load_configuration(source: Path) -> BenchmarkConfiguration:
         "dataset",
         "chunk_set_fingerprint",
         "top_k",
+        "candidate_k",
+        "reranker",
         "output_directory",
         "configurations",
     }
@@ -115,6 +138,13 @@ def load_configuration(source: Path) -> BenchmarkConfiguration:
     top_k = value.get("top_k")
     if isinstance(top_k, bool) or not isinstance(top_k, int) or top_k <= 0:
         raise BenchmarkError("top_k deve essere un intero positivo.")
+    candidate_k = value.get("candidate_k", top_k)
+    if (
+        isinstance(candidate_k, bool)
+        or not isinstance(candidate_k, int)
+        or candidate_k < top_k
+    ):
+        raise BenchmarkError("candidate_k deve essere un intero almeno pari a top_k.")
 
     dataset = _relative_path(source, value.get("dataset"), "dataset")
     output = _relative_path(source, value.get("output_directory"), "output_directory")
@@ -141,13 +171,52 @@ def load_configuration(source: Path) -> BenchmarkConfiguration:
     if len(names) != len(set(names)):
         raise BenchmarkError("I nomi delle configurazioni devono essere univoci.")
 
+    reranker = _reranker_configuration(value.get("reranker"))
+    if reranker is not None and (
+        len(configurations) != 1 or configurations[0].retriever != "bm25"
+    ):
+        raise BenchmarkError(
+            "Il benchmark rerank richiede una sola configurazione BM25."
+        )
+
     return BenchmarkConfiguration(
         dataset=dataset,
         chunk_set_fingerprint=fingerprint,
         top_k=top_k,
         output_directory=output,
         configurations=tuple(configurations),
+        candidate_k=candidate_k,
+        reranker=reranker,
     )
+
+
+def _reranker_configuration(value: object) -> RerankerConfiguration | None:
+    if value is None:
+        return None
+    expected = {
+        "provider",
+        "model",
+        "search_unit_price_usd",
+        "price_snapshot_date",
+        "request_interval_seconds",
+    }
+    if not isinstance(value, Mapping) or set(value) != expected:
+        raise BenchmarkError(f"reranker deve contenere soltanto {sorted(expected)}.")
+    if value["provider"] != "cohere" or value["model"] != COHERE_MODEL:
+        raise BenchmarkError(f"Il solo reranker supportato è Cohere {COHERE_MODEL}.")
+    if value["search_unit_price_usd"] != SEARCH_UNIT_PRICE_USD:
+        raise BenchmarkError("search_unit_price_usd non coincide con lo snapshot.")
+    if value["price_snapshot_date"] != PRICE_SNAPSHOT_DATE:
+        raise BenchmarkError("price_snapshot_date non coincide con lo snapshot.")
+    interval = value["request_interval_seconds"]
+    if (
+        isinstance(interval, bool)
+        or not isinstance(interval, (int, float))
+        or not math.isfinite(float(interval))
+        or float(interval) < 0
+    ):
+        raise BenchmarkError("request_interval_seconds deve essere non negativo.")
+    return RerankerConfiguration(request_interval_seconds=float(interval))
 
 
 def _relative_path(source: Path, value: object, field: str) -> Path:
@@ -160,13 +229,19 @@ def _relative_path(source: Path, value: object, field: str) -> Path:
 def run_benchmark(configuration_path: Path) -> BenchmarkArtifacts:
     """Esegue tutte le configurazioni e scrive manifest, trace e report."""
     configuration = load_configuration(configuration_path)
+    live_reranker: Reranker | None = None
+    if configuration.reranker is not None:
+        try:
+            live_reranker = reranker_from_environment()
+        except CohereRerankError as error:
+            raise BenchmarkError(str(error)) from error
     try:
         engine = create_engine(database_url())
     except RuntimeError as error:
         raise BenchmarkError(str(error)) from error
     try:
         with engine.connect() as connection:
-            return execute_benchmark(configuration, connection)
+            return execute_benchmark(configuration, connection, reranker=live_reranker)
     finally:
         engine.dispose()
 
@@ -175,8 +250,15 @@ def execute_benchmark(
     configuration: BenchmarkConfiguration,
     connection: Connection,
     retriever_factory: RetrieverFactory | None = None,
+    reranker: Reranker | None = None,
 ) -> BenchmarkArtifacts:
     """Esegue un benchmark usando una connessione già aperta."""
+    if configuration.reranker is not None:
+        if reranker is None:
+            raise BenchmarkError("Il benchmark Cohere richiede un reranker iniettato.")
+        return _execute_paired_benchmark(
+            configuration, connection, retriever_factory, reranker
+        )
     cases, dataset_digest = _load_cases(configuration.dataset, connection)
     evidence_pool = _load_evidence_pool(
         connection, configuration.chunk_set_fingerprint
@@ -248,7 +330,7 @@ def execute_benchmark(
     report_path = output / f"{run_id}.report.json"
     manifest_path = output / f"{run_id}.manifest.json"
     manifest = {
-        "schema_version": BENCHMARK_SCHEMA_VERSION,
+        "schema_version": BENCHMARK_ARTIFACT_SCHEMA_VERSION,
         "run_id": run_id,
         "dataset": str(configuration.dataset),
         "dataset_sha256": dataset_digest,
@@ -261,7 +343,7 @@ def execute_benchmark(
         },
     }
     report = {
-        "schema_version": BENCHMARK_SCHEMA_VERSION,
+        "schema_version": BENCHMARK_ARTIFACT_SCHEMA_VERSION,
         "run_id": run_id,
         "top_k": configuration.top_k,
         "alpha": ALPHA,
@@ -275,6 +357,281 @@ def execute_benchmark(
     except (OSError, RetrievalTraceError) as error:
         raise BenchmarkError(str(error)) from error
     return BenchmarkArtifacts(run_id, manifest_path, trace_path, report_path)
+
+
+def _execute_paired_benchmark(
+    configuration: BenchmarkConfiguration,
+    connection: Connection,
+    retriever_factory: RetrieverFactory | None,
+    reranker: Reranker,
+) -> BenchmarkArtifacts:
+    cases, dataset_digest = _load_cases(configuration.dataset, connection)
+    evidence_pool = _load_evidence_pool(
+        connection, configuration.chunk_set_fingerprint
+    )
+    candidate_k = configuration.candidate_k or configuration.top_k
+    rerank_configuration = configuration.reranker
+    assert rerank_configuration is not None
+    requested = configuration.configurations[0]
+    factory = retriever_factory or _retriever
+    retriever = factory(
+        requested.retriever, connection, configuration.chunk_set_fingerprint
+    )
+    run_id = _run_id(configuration, dataset_digest)
+    runs: list[RetrievalRun] = []
+    baseline_cases: list[dict[str, Any]] = []
+    baseline_metrics: list[CaseMetrics] = []
+    rerank_cases: list[dict[str, Any]] = []
+    rerank_metrics: list[CaseMetrics] = []
+    source_metrics: list[CaseMetrics] = []
+    deltas: list[dict[str, Any]] = []
+    failures: list[dict[str, str]] = []
+    source_latencies: list[float] = []
+    rerank_latencies: list[float] = []
+    rerank_end_to_end_latencies: list[float] = []
+    billed_search_units = 0.0
+    source_effective: dict[str, Any] | None = None
+    rerank_effective: dict[str, Any] | None = None
+    previous_rerank_started_at: float | None = None
+
+    for case in cases:
+        try:
+            source = retriever.retrieve(case.query, candidate_k)
+        except Exception as error:
+            raise BenchmarkError(f"Caso {case.case_id!r}, BM25: {error}") from error
+        source = replace(
+            source,
+            configuration={
+                **source.configuration,
+                "benchmark_configuration": requested.name,
+                "retriever": "bm25",
+                "candidate_k": candidate_k,
+                "top_k": configuration.top_k,
+            },
+        )
+        if source_effective is None:
+            source_effective = source.configuration
+        elif source_effective != source.configuration:
+            raise BenchmarkError("La configurazione BM25 cambia fra i casi.")
+        source_latencies.append(source.latency_ms)
+        baseline_report, baseline_case_metrics = _case_report(
+            case, source, configuration.top_k, evidence_pool
+        )
+        baseline_cases.append(baseline_report)
+        if baseline_case_metrics is not None:
+            baseline_metrics.append(baseline_case_metrics)
+            source_metrics.append(
+                calculate_metrics(case, source, candidate_k, evidence_pool)
+            )
+
+        rerank_error: str | None = None
+        rankings: tuple[Ranking, ...] = (source,)
+        try:
+            interval = rerank_configuration.request_interval_seconds
+            if previous_rerank_started_at is not None and interval > 0:
+                remaining = interval - (time.monotonic() - previous_rerank_started_at)
+                if remaining > 0:
+                    time.sleep(remaining)
+            previous_rerank_started_at = time.monotonic()
+            reranked = reranker.rerank(case.query, source, configuration.top_k)
+            rankings = (source, reranked)
+            rerank_latencies.append(reranked.latency_ms)
+            rerank_end_to_end_latencies.append(source.latency_ms + reranked.latency_ms)
+            billed_search_units += float(
+                reranked.configuration["billed_search_units"]
+            )
+            effective = {
+                key: value
+                for key, value in reranked.configuration.items()
+                if key != "billed_search_units"
+            }
+            if rerank_effective is None:
+                rerank_effective = effective
+            elif rerank_effective != effective:
+                raise BenchmarkError("La configurazione Cohere cambia fra i casi.")
+            rerank_report, rerank_case_metrics = _case_report(
+                case, reranked, configuration.top_k, evidence_pool
+            )
+            rerank_cases.append(rerank_report)
+            if baseline_case_metrics is not None and rerank_case_metrics is not None:
+                rerank_metrics.append(rerank_case_metrics)
+                deltas.append(
+                    _metric_delta(
+                        case.case_id, baseline_case_metrics, rerank_case_metrics
+                    )
+                )
+        except Exception as error:
+            rerank_error = f"{type(error).__name__}: {error}"
+            failures.append({"case_id": case.case_id, "error": rerank_error})
+
+        runs.append(
+            RetrievalRun(
+                run_id=run_id,
+                case_id=case.case_id,
+                query=case.query,
+                chunk_set_fingerprint=configuration.chunk_set_fingerprint,
+                rankings=rankings,
+                rerank_error=rerank_error,
+            )
+        )
+
+    complete = not failures
+    aggregate_deltas = _aggregate_deltas(deltas)
+    output = configuration.output_directory
+    trace_path = output / f"{run_id}.trace.jsonl"
+    report_path = output / f"{run_id}.report.json"
+    manifest_path = output / f"{run_id}.manifest.json"
+    price = rerank_configuration.search_unit_price_usd
+    manifest = {
+        "schema_version": BENCHMARK_ARTIFACT_SCHEMA_VERSION,
+        "trace_schema_version": 2,
+        "run_id": run_id,
+        "dataset": str(configuration.dataset),
+        "dataset_sha256": dataset_digest,
+        "chunk_set_fingerprint": configuration.chunk_set_fingerprint,
+        "candidate_k": candidate_k,
+        "top_k": configuration.top_k,
+        "variants": [
+            {"name": "bm25-baseline", "source": source_effective},
+            {
+                "name": "cohere-rerank",
+                "source": source_effective,
+                "reranker": {
+                    "provider": "cohere",
+                    "model": rerank_configuration.model,
+                    "search_unit_price_usd": price,
+                    "price_snapshot_date": rerank_configuration.price_snapshot_date,
+                    "request_interval_seconds": (
+                        rerank_configuration.request_interval_seconds
+                    ),
+                    "effective": rerank_effective,
+                },
+            },
+        ],
+        "artifacts": {"trace": trace_path.name, "report": report_path.name},
+    }
+    report = {
+        "schema_version": BENCHMARK_ARTIFACT_SCHEMA_VERSION,
+        "run_id": run_id,
+        "candidate_k": candidate_k,
+        "top_k": configuration.top_k,
+        "alpha": ALPHA,
+        "decision": _decision(complete, aggregate_deltas),
+        "source": {
+            "recall_at_candidate_k": _mean_metric(
+                source_metrics, "evidence_recall_at_k"
+            ),
+            "latency_ms": _latency_summary(source_latencies),
+        },
+        "baseline": {
+            "aggregate": _quality_aggregate(baseline_metrics),
+            "latency_ms": _latency_summary(source_latencies),
+            "cases": baseline_cases,
+        },
+        "rerank": {
+            "complete": complete,
+            "successes": len(cases) - len(failures),
+            "failures": len(failures),
+            "failure_details": failures,
+            "aggregate": _quality_aggregate(rerank_metrics),
+            "latency_ms": _latency_summary(rerank_latencies),
+            "end_to_end_latency_ms": _latency_summary(
+                rerank_end_to_end_latencies
+            ),
+            "billed_search_units": billed_search_units,
+            "estimated_cost_usd": billed_search_units * price,
+            "search_unit_price_usd": price,
+            "price_snapshot_date": rerank_configuration.price_snapshot_date,
+            "cases": rerank_cases,
+        },
+        "paired_comparison": {
+            "case_count": len(deltas),
+            "complete": complete,
+            "aggregate_delta": aggregate_deltas,
+            "cases": deltas,
+        },
+    }
+    try:
+        output.mkdir(parents=True, exist_ok=True)
+        write_trace(runs, trace_path)
+        _write_json(report_path, report)
+        _write_json(manifest_path, manifest)
+    except (OSError, RetrievalTraceError) as error:
+        raise BenchmarkError(str(error)) from error
+    return BenchmarkArtifacts(run_id, manifest_path, trace_path, report_path)
+
+
+def _quality_aggregate(metrics: Sequence[CaseMetrics]) -> dict[str, float | int]:
+    return {
+        "answerable_cases": len(metrics),
+        "evidence_recall_at_k": _mean_metric(metrics, "evidence_recall_at_k"),
+        "mrr_at_k": _mean_metric(metrics, "mrr_at_k"),
+        "alpha_ndcg_at_k": _mean_metric(metrics, "alpha_ndcg_at_k"),
+    }
+
+
+def _mean_metric(metrics: Sequence[CaseMetrics], field: str) -> float:
+    return (
+        0.0
+        if not metrics
+        else sum(float(getattr(item, field)) for item in metrics) / len(metrics)
+    )
+
+
+def _metric_delta(
+    case_id: str, baseline: CaseMetrics, reranked: CaseMetrics
+) -> dict[str, Any]:
+    return {
+        "case_id": case_id,
+        "evidence_recall_at_k": (
+            reranked.evidence_recall_at_k - baseline.evidence_recall_at_k
+        ),
+        "mrr_at_k": reranked.mrr_at_k - baseline.mrr_at_k,
+        "alpha_ndcg_at_k": reranked.alpha_ndcg_at_k - baseline.alpha_ndcg_at_k,
+    }
+
+
+def _aggregate_deltas(deltas: Sequence[Mapping[str, Any]]) -> dict[str, float]:
+    fields = ("evidence_recall_at_k", "mrr_at_k", "alpha_ndcg_at_k")
+    return {
+        field: (
+            0.0
+            if not deltas
+            else sum(float(item[field]) for item in deltas) / len(deltas)
+        )
+        for field in fields
+    }
+
+
+def _decision(complete: bool, deltas: Mapping[str, float]) -> str:
+    if not complete:
+        return "inconclusive"
+    values = tuple(deltas.values())
+    if values and all(value >= 0 for value in values) and any(
+        value > 0 for value in values
+    ):
+        return "carry-forward-to-#15"
+    return "reject"
+
+
+def _latency_summary(values: Sequence[float]) -> dict[str, float]:
+    if not values:
+        return {"mean": 0.0, "p50": 0.0, "p95": 0.0}
+    ordered = sorted(values)
+    return {
+        "mean": statistics.fmean(ordered),
+        "p50": _percentile(ordered, 0.50),
+        "p95": _percentile(ordered, 0.95),
+    }
+
+
+def _percentile(ordered: Sequence[float], quantile: float) -> float:
+    position = (len(ordered) - 1) * quantile
+    lower = math.floor(position)
+    upper = math.ceil(position)
+    if lower == upper:
+        return ordered[lower]
+    return ordered[lower] + (ordered[upper] - ordered[lower]) * (position - lower)
 
 
 def _load_cases(
@@ -481,7 +838,13 @@ def _run_id(configuration: BenchmarkConfiguration, dataset_digest: str) -> str:
         "dataset_sha256": dataset_digest,
         "chunk_set_fingerprint": configuration.chunk_set_fingerprint,
         "top_k": configuration.top_k,
+        "candidate_k": configuration.candidate_k or configuration.top_k,
         "configurations": [asdict(item) for item in configuration.configurations],
+        "reranker": (
+            asdict(configuration.reranker)
+            if configuration.reranker is not None
+            else None
+        ),
     }
     serialized = json.dumps(value, sort_keys=True, separators=(",", ":"))
     return f"benchmark-{hashlib.sha256(serialized.encode()).hexdigest()[:16]}"

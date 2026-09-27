@@ -9,7 +9,8 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Protocol
 
-TRACE_SCHEMA_VERSION = 1
+TRACE_SCHEMA_VERSION = 2
+SUPPORTED_TRACE_SCHEMA_VERSIONS = (1, TRACE_SCHEMA_VERSION)
 
 
 class RetrievalTraceError(Exception):
@@ -92,10 +93,11 @@ class RetrievalRun:
     query: str
     chunk_set_fingerprint: str
     rankings: tuple[Ranking, ...]
+    rerank_error: str | None = None
     schema_version: int = TRACE_SCHEMA_VERSION
 
     def __post_init__(self) -> None:
-        if self.schema_version != TRACE_SCHEMA_VERSION:
+        if self.schema_version not in SUPPORTED_TRACE_SCHEMA_VERSIONS:
             raise ValueError(f"unsupported trace schema version: {self.schema_version}")
 
 
@@ -147,6 +149,11 @@ def _run_from_dict(value: dict[str, Any]) -> RetrievalRun:
         query=str(value["query"]),
         chunk_set_fingerprint=str(value["chunk_set_fingerprint"]),
         rankings=tuple(_ranking_from_dict(item) for item in value["rankings"]),
+        rerank_error=(
+            str(value["rerank_error"])
+            if value.get("rerank_error") is not None
+            else None
+        ),
         schema_version=int(value["schema_version"]),
     )
 
