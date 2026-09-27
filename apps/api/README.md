@@ -38,6 +38,25 @@ Entrambe conservano le partizioni sorgente e un eventuale parent per la successi
 espansione del contesto. Configurazione o corpus diversi producono un nuovo insieme;
 rieseguire la stessa configurazione riusa quello esistente.
 
+## Retrieval dense
+
+Esporta `OPENAI_API_KEY`, poi genera la cache portabile per un insieme di chunk e
+importala nel database:
+
+```sh
+export OPENAI_API_KEY="..."
+ocio genera-embedding <fingerprint> --model small
+ocio genera-embedding <fingerprint> --model large
+ocio importa-embedding ../../artifacts/embeddings/text-embedding-3-small-1536.jsonl.gz
+ocio importa-embedding ../../artifacts/embeddings/text-embedding-3-large-3072.jsonl.gz
+```
+
+`small` usa le 1536 dimensioni native di `text-embedding-3-small`; `large` usa
+le 3072 dimensioni native di `text-embedding-3-large`. Le cache non contengono
+testo e vengono riutilizzate per contenuti con lo stesso SHA-256 anche fra
+insiemi di chunk diversi. L'importazione è offline e può ricostruire la tabella
+degli embedding senza chiamare OpenAI.
+
 ## Silver set
 
 Esporta le partizioni non vuote dei documenti abilitati in un JSONL compatto da

@@ -14,6 +14,12 @@ from ocio.chunking import (
 from ocio.chunking import (
     format_report as format_chunking_report,
 )
+from ocio.embeddings import (
+    CONFIGS,
+    EmbeddingError,
+    generate_embeddings,
+    import_embeddings,
+)
 from ocio.evaluation import (
     EvaluationError,
     default_schema_path,
@@ -55,6 +61,15 @@ def main() -> int:
     chunker.add_argument("--max-tokens", type=int, default=512)
     chunker.add_argument("--overlap-tokens", type=int, default=0)
     chunker.add_argument("--encoding", default="cl100k_base")
+    embedding_generator = commands.add_parser(
+        "genera-embedding", help="Genera la cache degli embedding mancanti"
+    )
+    embedding_generator.add_argument("fingerprint")
+    embedding_generator.add_argument("--model", choices=tuple(CONFIGS), required=True)
+    embedding_importer = commands.add_parser(
+        "importa-embedding", help="Importa una cache embedding nel database"
+    )
+    embedding_importer.add_argument("cache", type=Path)
     corpus_exporter = commands.add_parser(
         "esporta-corpus-valutazione",
         help="Esporta il corpus compatto per generare il silver set",
@@ -93,6 +108,29 @@ def main() -> int:
         except ChunkingError as error:
             parser.exit(1, f"Generazione chunk fallita: {error}\n")
         print(format_chunking_report(chunking_report))
+    elif args.command == "genera-embedding":
+        try:
+            embedding_report = generate_embeddings(
+                args.fingerprint, CONFIGS[args.model]
+            )
+        except EmbeddingError as error:
+            parser.exit(1, f"Generazione embedding fallita: {error}\n")
+        print(
+            f"Chunk ricercabili: {embedding_report.searchable_chunks}\n"
+            f"Contenuti unici: {embedding_report.unique_contents}\n"
+            f"Embedding riusati: {embedding_report.reused_embeddings}\n"
+            f"Embedding creati: {embedding_report.created_embeddings}\n"
+            f"Cache: {embedding_report.cache_path}"
+        )
+    elif args.command == "importa-embedding":
+        try:
+            import_report = import_embeddings(args.cache)
+        except EmbeddingError as error:
+            parser.exit(1, f"Importazione embedding fallita: {error}\n")
+        print(
+            f"Embedding importati: {import_report.imported_embeddings} "
+            f"({import_report.model}, {import_report.dimension} dimensioni)."
+        )
     elif args.command == "esporta-corpus-valutazione":
         try:
             export_report = export_evaluation_corpus(args.output)

@@ -32,6 +32,9 @@ dist/
 *.egg-info/
 .eggs/
 
+# Generated embedding caches
+artifacts/embeddings/*.jsonl.gz
+
 # Logs and runtime files
 *.log
 *.pid
