@@ -12,14 +12,14 @@ profiles:
     rewrite: &rewrite
       provider: openai
       model: gpt-6-luna
-      prompt_version: query-rewrite-v1
+      prompt_version: query-rewrite-v2
       token_budget: 2000
       reasoning_effort: low
       max_output_tokens: 500
     sufficiency: &sufficiency
       provider: openai
       model: gpt-6-luna
-      prompt_version: sufficiency-v1
+      prompt_version: sufficiency-v2
       reasoning_effort: low
       max_output_tokens: 500
       minimum_score: 0.0
@@ -27,7 +27,7 @@ profiles:
     generation:
       provider: openai
       model: gpt-6-luna
-      prompt_version: grounded-answer-v1
+      prompt_version: grounded-answer-v2
       reasoning_effort: low
       max_output_tokens: 1200
     limits: &limits
@@ -44,7 +44,7 @@ profiles:
     generation:
       provider: openai
       model: gpt-6-luna
-      prompt_version: grounded-answer-v1
+      prompt_version: grounded-answer-v2
       reasoning_effort: low
       max_output_tokens: 1200
     limits: *limits
@@ -56,7 +56,7 @@ profiles:
     generation:
       provider: openai
       model: gpt-6-sol
-      prompt_version: grounded-answer-v1
+      prompt_version: grounded-answer-v2
       reasoning_effort: low
       max_output_tokens: 1200
     limits: *limits

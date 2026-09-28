@@ -36,9 +36,10 @@ class OpenAIAnswerProvider:
             response = self.client.create(
                 model=request.model,
                 instructions=(
-                    "Answer the question only from the supplied evidence. "
-                    "Return each normative claim separately and cite one or more "
-                    "supplied citation_id values. Never invent IDs or provenance."
+                    "Rispondi alla domanda esclusivamente in italiano e usando le "
+                    "fonti fornite. Restituisci separatamente ogni affermazione "
+                    "normativa e cita uno o più citation_id forniti. Non inventare "
+                    "mai identificativi o provenienze."
                 ),
                 input=json.dumps(
                     {"question": request.question, "evidence": evidence},
@@ -86,8 +87,9 @@ class OpenAISufficiencyJudge:
             response = self.client.create(
                 model=request.model,
                 instructions=(
-                    "Decide whether the supplied evidence is relevant and sufficient "
-                    "to answer the question. Return ANSWER only when it is sufficient."
+                    "Decidi se le fonti fornite sono pertinenti e sufficienti per "
+                    "rispondere alla domanda. Restituisci ANSWER solo quando sono "
+                    "sufficienti."
                 ),
                 input=json.dumps(
                     {"question": request.question, "evidence": [
@@ -147,10 +149,10 @@ class OpenAIQueryRewriter:
             response = self.client.create(
                 model=self.model,
                 instructions=(
-                    "Rewrite the last user question as a standalone Italian search "
-                    "query, preserving exact legal references and facts. If the "
-                    "context permits incompatible interpretations, ask one concise "
-                    "clarifying question instead of guessing."
+                    "Riscrivi l'ultima domanda dell'utente come una ricerca autonoma "
+                    "in italiano, preservando esattamente riferimenti normativi e "
+                    "fatti. Se il contesto consente interpretazioni incompatibili, "
+                    "fai una sola domanda di chiarimento concisa invece di supporre."
                 ),
                 input=json.dumps(
                     payload, ensure_ascii=False, separators=(",", ":")

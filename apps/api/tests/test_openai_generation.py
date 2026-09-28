@@ -54,6 +54,7 @@ def test_uses_responses_strict_schema_without_sending_provenance() -> None:
     assert call["temperature"] == 0
     assert "passaggio" in str(call["input"])
     assert "https://" not in str(call["input"])
+    assert "esclusivamente in italiano" in str(call["instructions"])
     assert call["text"]["format"]["strict"] is True  # type: ignore[index]
 
 
@@ -86,6 +87,7 @@ def test_sufficiency_judge_uses_strict_schema() -> None:
     call = client.calls[0]
     assert call["model"] == "judge-model"
     assert call["store"] is False
+    assert "fonti fornite" in str(call["instructions"])
     assert call["text"]["format"]["strict"] is True  # type: ignore[index]
     assert "uniqueItems" not in call["text"]["format"]["schema"]["properties"][  # type: ignore[index]
         "evidence_ids"
@@ -111,4 +113,5 @@ def test_query_rewriter_uses_bounded_context_and_strict_schema() -> None:
     assert call["store"] is False
     assert call["reasoning"] == {"effort": "low"}
     assert "Parliamo dei DPI" in str(call["input"])
+    assert "ricerca autonoma in italiano" in str(call["instructions"])
     assert call["text"]["format"]["strict"] is True  # type: ignore[index]
