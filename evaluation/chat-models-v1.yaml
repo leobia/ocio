@@ -1,0 +1,5 @@
+schema_version: 1
+runtime_config: ../config/chat-runtime-v1.yaml
+dataset: silver-set-v1.jsonl
+output: ../artifacts/evaluations/chat-models-v1.report.json
+profiles: [alpha, alpha-escalated]

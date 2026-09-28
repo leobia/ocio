@@ -431,7 +431,15 @@ def create_app(
         title="OCIO API", version="1.0.0",
         responses={400: {"model": ErrorEnvelope}, 500: {"model": ErrorEnvelope}},
     )
-    selected_store = store or PostgresStore(create_engine(database_url()))
+    if store is None:
+        engine = create_engine(database_url())
+        selected_store: Store = PostgresStore(engine)
+        if backend is None:
+            from ocio.chat_runtime import backend_from_environment
+
+            backend = backend_from_environment(engine)
+    else:
+        selected_store = store
     selected_backend = backend or UnconfiguredBackend()
 
     @app.middleware("http")

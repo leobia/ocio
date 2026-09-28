@@ -70,8 +70,8 @@ class EmbeddingClient(Protocol):
 class OpenAIEmbeddingClient:
     """Adapter minimo per l'endpoint Embeddings di OpenAI."""
 
-    def __init__(self) -> None:
-        self._client = OpenAI()
+    def __init__(self, *, timeout: float | None = None, max_retries: int = 2) -> None:
+        self._client = OpenAI(timeout=timeout, max_retries=max_retries)
 
     def embed(self, texts: Sequence[str], model: str) -> Sequence[Sequence[float]]:
         try:

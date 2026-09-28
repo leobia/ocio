@@ -7,6 +7,7 @@ from pathlib import Path
 
 from ocio.acquisition import AcquisitionError, import_source_acquisitions
 from ocio.benchmark import BenchmarkError, run_benchmark
+from ocio.chat_evaluation import ChatEvaluationError, run_chat_evaluation
 from ocio.chunking import (
     ChunkingConfig,
     ChunkingError,
@@ -92,6 +93,10 @@ def main() -> int:
         help="Esegue configurazioni confrontabili di retrieval",
     )
     benchmark.add_argument("configuration", type=Path)
+    chat_evaluation = commands.add_parser(
+        "valuta-chat", help="Confronta i profili runtime della chat"
+    )
+    chat_evaluation.add_argument("configuration", type=Path)
     args = parser.parse_args()
     if args.command == "importa-corpus":
         try:
@@ -162,4 +167,10 @@ def main() -> int:
             f"Trace: {artifacts.trace}\n"
             f"Report: {artifacts.report}"
         )
+    elif args.command == "valuta-chat":
+        try:
+            chat_artifacts = run_chat_evaluation(args.configuration)
+        except ChatEvaluationError as error:
+            parser.exit(1, f"Evaluation chat fallita: {error}\n")
+        print(f"Evaluation chat completata: {chat_artifacts.report}")
     return 0

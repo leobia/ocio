@@ -1,0 +1,62 @@
+schema_version: 1
+
+profiles:
+  local:
+    retrieval: &retrieval
+      chunk_set_fingerprint: dc2c0290603eb4e218fcfe31d13942bde626a82f74c40eb7f7dae39c052d8cf9
+      embedding_provider: openai
+      embedding: large
+      reranker: null
+      candidate_k: 10
+      top_k: 10
+    rewrite: &rewrite
+      provider: openai
+      model: gpt-6-luna
+      prompt_version: query-rewrite-v1
+      token_budget: 2000
+      reasoning_effort: low
+      max_output_tokens: 500
+    sufficiency: &sufficiency
+      provider: openai
+      model: gpt-6-luna
+      prompt_version: sufficiency-v1
+      reasoning_effort: low
+      max_output_tokens: 500
+      minimum_score: 0.0
+      minimum_evidence: 1
+    generation:
+      provider: openai
+      model: gpt-6-luna
+      prompt_version: grounded-answer-v1
+      reasoning_effort: low
+      max_output_tokens: 1200
+    limits: &limits
+      timeout_seconds: 30
+      max_retries: 2
+
+  alpha:
+    retrieval: &alpha_retrieval
+      <<: *retrieval
+      reranker: cohere
+      candidate_k: 20
+    rewrite: *rewrite
+    sufficiency: *sufficiency
+    generation:
+      provider: openai
+      model: gpt-6-luna
+      prompt_version: grounded-answer-v1
+      reasoning_effort: low
+      max_output_tokens: 1200
+    limits: *limits
+
+  alpha-escalated:
+    retrieval: *alpha_retrieval
+    rewrite: *rewrite
+    sufficiency: *sufficiency
+    generation:
+      provider: openai
+      model: gpt-6-sol
+      prompt_version: grounded-answer-v1
+      reasoning_effort: low
+      max_output_tokens: 1200
+    limits: *limits

@@ -23,6 +23,36 @@ Il processo HTTP riceve il backend di chat tramite `create_app`; in assenza di
 un backend configurato, le route dati restano disponibili e l'invio di un
 messaggio risponde `503 chat_unavailable`.
 
+### Runtime della chat
+
+La configurazione versionata è in `config/chat-runtime-v1.yaml`. Per avviare il
+profilo economico locale:
+
+```sh
+export OCIO_CHAT_PROFILE=local
+export OPENAI_API_KEY="..."
+uvicorn ocio.api:create_app --factory
+```
+
+Il profilo `alpha` aggiunge il reranking selezionato dai benchmark e richiede
+anche `COHERE_API_KEY`. `OCIO_CHAT_CONFIG` può indicare un file alternativo con
+percorso assoluto. Le chiavi sono lette solo dall'ambiente server e non entrano
+in response, trace o log. Le richieste OpenAI usano `store=false`, timeout di 30
+secondi e due retry; un errore provider produce l'envelope sicuro
+`provider_failure`. L'alpha accetta soltanto casi fittizi o previamente redatti,
+senza dati sanitari, identificativi o documenti aziendali reali.
+
+Con database preparato e credenziali provider, confronta il profilo alpha con
+l'escalation a Sol sui casi esistenti:
+
+```sh
+ocio valuta-chat ../../evaluation/chat-models-v1.yaml
+```
+
+Il report misura esito/astensione, copertura delle evidenze attese, presenza
+della trace e latenza. La scelta dei modelli va aggiornata solo dopo questo
+confronto, non cambiando silenziosamente gli alias nel codice.
+
 ## Importazione e normalizzazione del corpus
 
 Le fonti vengono lette soltanto dai file locali verificati tramite SHA-256 nel

@@ -70,7 +70,7 @@ class CohereReranker:
         )
 
 
-def reranker_from_environment() -> CohereReranker:
+def reranker_from_environment(timeout: float | None = None) -> CohereReranker:
     """Build the live adapter without ever retaining the key in artifacts."""
     api_key = os.environ.get("COHERE_API_KEY")
     if not api_key:
@@ -81,7 +81,9 @@ def reranker_from_environment() -> CohereReranker:
         import cohere
     except ImportError as error:  # pragma: no cover - packaging guards this path
         raise CohereRerankError("Il pacchetto cohere non è installato.") from error
-    return CohereReranker(cast(CohereClient, cohere.ClientV2(api_key=api_key)))
+    return CohereReranker(cast(
+        CohereClient, cohere.ClientV2(api_key=api_key, timeout=timeout)
+    ))
 
 
 def _validate_response(

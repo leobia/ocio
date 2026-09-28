@@ -30,6 +30,7 @@ def test_help_is_available() -> None:
     assert "genera-embedding" in result.stdout
     assert "importa-embedding" in result.stdout
     assert "benchmark-retrieval" in result.stdout
+    assert "valuta-chat" in result.stdout
 
 
 def test_embedding_commands_report_their_results(

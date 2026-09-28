@@ -6,9 +6,11 @@ from dataclasses import dataclass
 
 import pytest
 
+from ocio.conversation import Conversation, RewriteRequest
 from ocio.generation import ProviderEvidence, ProviderGenerationError, ProviderRequest
 from ocio.openai_generation import (
     OpenAIAnswerProvider,
+    OpenAIQueryRewriter,
     OpenAISufficiencyJudge,
     provider_from_environment,
 )
@@ -84,4 +86,29 @@ def test_sufficiency_judge_uses_strict_schema() -> None:
     call = client.calls[0]
     assert call["model"] == "judge-model"
     assert call["store"] is False
+    assert call["text"]["format"]["strict"] is True  # type: ignore[index]
+    assert "uniqueItems" not in call["text"]["format"]["schema"]["properties"][  # type: ignore[index]
+        "evidence_ids"
+    ]
+
+
+def test_query_rewriter_uses_bounded_context_and_strict_schema() -> None:
+    client = FakeResponses(Response(
+        '{"decision":"RETRIEVE","standalone_query":"Quali DPI servono?",'
+        '"clarification":null}'
+    ))
+    conversation = Conversation().append("turn-1", "user", "Parliamo dei DPI")
+
+    result = OpenAIQueryRewriter(
+        client, "rewrite-model", "rewrite-v1"
+    ).rewrite(RewriteRequest(
+        "E quali servono?", conversation.log, conversation.case_state
+    ))
+
+    assert result["standalone_query"] == "Quali DPI servono?"
+    call = client.calls[0]
+    assert call["model"] == "rewrite-model"
+    assert call["store"] is False
+    assert call["reasoning"] == {"effort": "low"}
+    assert "Parliamo dei DPI" in str(call["input"])
     assert call["text"]["format"]["strict"] is True  # type: ignore[index]

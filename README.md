@@ -7,6 +7,17 @@ infrastrutturale locale sono in `infra/`.
 
 ## Avvio locale
 
+Con `.env`, ambiente Python e dipendenze web già preparati, avvia l'intero
+stack con:
+
+```sh
+./scripts/dev.sh
+```
+
+Lo script usa il profilo chat `alpha` salvo override di `OCIO_CHAT_PROFILE`,
+applica le migrazioni e avvia web e API. `Ctrl+C` ferma i due processi; il
+database resta attivo nel container Docker.
+
 Avvia PostgreSQL 17 con `pgvector` e `pg_textsearch`:
 
 ```sh

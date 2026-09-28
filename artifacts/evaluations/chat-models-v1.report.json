@@ -1,0 +1,995 @@
+{
+  "profiles": [
+    {
+      "aggregate": {
+        "cases": 20,
+        "mean_latency_ms": 6615.3075725,
+        "passed": 18,
+        "success_rate": 0.9
+      },
+      "cases": [
+        {
+          "case_id": "silver-0001",
+          "cited_evidence": [
+            [
+              "dlgs_81_2008",
+              "art_28__para_1"
+            ],
+            [
+              "dlgs_81_2008",
+              "art_2__para_1.__point_q"
+            ],
+            [
+              "dlgs_81_2008",
+              "art_2__para_1.__point_r"
+            ],
+            [
+              "dlgs_81_2008",
+              "art_2__para_1.__point_s"
+            ],
+            [
+              "dlgs_81_2008",
+              "art_2__para_1.__point_t"
+            ]
+          ],
+          "expected_evidence": [
+            [
+              "dlgs_81_2008",
+              "art_2__para_1.__point_q"
+            ]
+          ],
+          "latency_ms": 8469.701273999988,
+          "passed": true,
+          "status": "ANSWER",
+          "trace_present": true
+        },
+        {
+          "case_id": "silver-0002",
+          "cited_evidence": [
+            [
+              "dlgs_81_2008",
+              "art_25__para_1.__point_i"
+            ],
+            [
+              "dlgs_81_2008",
+              "art_25__para_1.__point_l"
+            ],
+            [
+              "dlgs_81_2008",
+              "art_25__para_1.__point_m"
+            ]
+          ],
+          "expected_evidence": [
+            [
+              "dlgs_81_2008",
+              "art_25__para_1.__point_l"
+            ]
+          ],
+          "latency_ms": 7307.615518000034,
+          "passed": true,
+          "status": "ANSWER",
+          "trace_present": true
+        },
+        {
+          "case_id": "silver-0003",
+          "cited_evidence": [
+            [
+              "dlgs_81_2008",
+              "art_37__para_5"
+            ],
+            [
+              "dlgs_81_2008",
+              "art_37__para_6"
+            ],
+            [
+              "dlgs_81_2008",
+              "art_37__para_7"
+            ],
+            [
+              "dlgs_81_2008",
+              "art_77__para_4.__point_h"
+            ]
+          ],
+          "expected_evidence": [
+            [
+              "dlgs_81_2008",
+              "art_77__para_4.__point_h"
+            ]
+          ],
+          "latency_ms": 6264.184109000042,
+          "passed": true,
+          "status": "ANSWER",
+          "trace_present": true
+        },
+        {
+          "case_id": "silver-0004",
+          "cited_evidence": [
+            [
+              "dlgs_81_2008",
+              "art_71__para_11"
+            ]
+          ],
+          "expected_evidence": [
+            [
+              "dlgs_81_2008",
+              "art_71__para_11"
+            ]
+          ],
+          "latency_ms": 7307.249074000027,
+          "passed": true,
+          "status": "ANSWER",
+          "trace_present": true
+        },
+        {
+          "case_id": "silver-0005",
+          "cited_evidence": [
+            [
+              "dpr_462_2001",
+              "art_4__para_1"
+            ],
+            [
+              "dpr_462_2001",
+              "art_4__para_2"
+            ],
+            [
+              "dpr_462_2001",
+              "art_4__para_3"
+            ],
+            [
+              "dpr_462_2001",
+              "art_4__para_4"
+            ]
+          ],
+          "expected_evidence": [
+            [
+              "dpr_462_2001",
+              "art_4__para_1"
+            ]
+          ],
+          "latency_ms": 7036.484771000005,
+          "passed": true,
+          "status": "ANSWER",
+          "trace_present": true
+        },
+        {
+          "case_id": "silver-0006",
+          "cited_evidence": [
+            [
+              "dm_132_2024",
+              "art_4__para_1"
+            ],
+            [
+              "dm_132_2024",
+              "art_4__para_2"
+            ],
+            [
+              "dm_132_2024",
+              "art_5__para_1"
+            ],
+            [
+              "dm_132_2024",
+              "art_5__para_2"
+            ],
+            [
+              "dm_132_2024",
+              "art_5__para_3"
+            ]
+          ],
+          "expected_evidence": [
+            [
+              "dm_132_2024",
+              "art_4__para_1"
+            ]
+          ],
+          "latency_ms": 6408.346053000003,
+          "passed": true,
+          "status": "ANSWER",
+          "trace_present": true
+        },
+        {
+          "case_id": "silver-0007",
+          "cited_evidence": [
+            [
+              "dm_388_2003",
+              "art_3__para_5"
+            ]
+          ],
+          "expected_evidence": [
+            [
+              "dm_388_2003",
+              "art_3__para_5"
+            ]
+          ],
+          "latency_ms": 8377.789047000022,
+          "passed": true,
+          "status": "ANSWER",
+          "trace_present": true
+        },
+        {
+          "case_id": "silver-0008",
+          "cited_evidence": [
+            [
+              "dpr_177_2011",
+              "art_2__para_1.__point_a"
+            ],
+            [
+              "dpr_177_2011",
+              "art_2__para_1.__point_b"
+            ],
+            [
+              "dpr_177_2011",
+              "art_2__para_1.__point_c"
+            ]
+          ],
+          "expected_evidence": [
+            [
+              "dpr_177_2011",
+              "art_2__para_1.__point_c"
+            ]
+          ],
+          "latency_ms": 7614.074030999973,
+          "passed": true,
+          "status": "ANSWER",
+          "trace_present": true
+        },
+        {
+          "case_id": "silver-0009",
+          "cited_evidence": [
+            [
+              "dlgs_81_2008",
+              "art_175__para_1"
+            ],
+            [
+              "dlgs_81_2008",
+              "art_175__para_2"
+            ],
+            [
+              "dlgs_81_2008",
+              "art_175__para_3"
+            ],
+            [
+              "dlgs_81_2008",
+              "art_175__para_4"
+            ]
+          ],
+          "expected_evidence": [
+            [
+              "dlgs_81_2008",
+              "art_175__para_3"
+            ]
+          ],
+          "latency_ms": 8350.78311000001,
+          "passed": true,
+          "status": "ANSWER",
+          "trace_present": true
+        },
+        {
+          "case_id": "silver-0010",
+          "cited_evidence": [
+            [
+              "dm_388_2003",
+              "art_2__para_3"
+            ],
+            [
+              "dm_388_2003",
+              "art_2__para_4"
+            ],
+            [
+              "dm_388_2003",
+              "art_2__para_5"
+            ]
+          ],
+          "expected_evidence": [
+            [
+              "dm_388_2003",
+              "art_2__para_5"
+            ]
+          ],
+          "latency_ms": 5625.984277999976,
+          "passed": true,
+          "status": "ANSWER",
+          "trace_present": true
+        },
+        {
+          "case_id": "silver-0011",
+          "cited_evidence": [
+            [
+              "dm_1_settembre_2021",
+              "documento/allegato-i/punto-1/voce_elenco-1"
+            ],
+            [
+              "dm_1_settembre_2021",
+              "documento/allegato-i/punto-1/voce_elenco-2"
+            ],
+            [
+              "dm_1_settembre_2021",
+              "documento/art-3/comma-1"
+            ],
+            [
+              "dm_1_settembre_2021",
+              "documento/art-3/comma-2"
+            ],
+            [
+              "dm_1_settembre_2021",
+              "documento/art-3/comma-3"
+            ]
+          ],
+          "expected_evidence": [
+            [
+              "dm_1_settembre_2021",
+              "documento/allegato-i/punto-1/voce_elenco-1"
+            ]
+          ],
+          "latency_ms": 8209.703853999998,
+          "passed": true,
+          "status": "ANSWER",
+          "trace_present": true
+        },
+        {
+          "case_id": "silver-0012",
+          "cited_evidence": [
+            [
+              "accordo_59_csr_2025",
+              "documento/parte-iii/punto-1/punto-1.2/testo-1"
+            ]
+          ],
+          "expected_evidence": [
+            [
+              "accordo_59_csr_2025",
+              "documento/parte-iii/punto-1/punto-1.2/testo-1"
+            ]
+          ],
+          "latency_ms": 10204.11494900003,
+          "passed": true,
+          "status": "ANSWER",
+          "trace_present": true
+        },
+        {
+          "case_id": "silver-0013",
+          "cited_evidence": [],
+          "expected_evidence": [
+            [
+              "dm_2_settembre_2021",
+              "documento/allegato-i/punto-1.3/voce_elenco-6"
+            ]
+          ],
+          "latency_ms": 3240.9491359999834,
+          "passed": false,
+          "status": "ABSTAIN",
+          "trace_present": true
+        },
+        {
+          "case_id": "silver-0014",
+          "cited_evidence": [
+            [
+              "dm_1_settembre_2021",
+              "documento/allegato-ii/punto-1/voce_elenco-4"
+            ],
+            [
+              "dm_1_settembre_2021",
+              "documento/allegato-ii/punto-1/voce_elenco-5"
+            ],
+            [
+              "dm_1_settembre_2021",
+              "documento/allegato-ii/punto-1/voce_elenco-6"
+            ],
+            [
+              "dm_1_settembre_2021",
+              "documento/allegato-ii/punto-5/voce_elenco-1"
+            ],
+            [
+              "dm_1_settembre_2021",
+              "documento/allegato-ii/punto-5/voce_elenco-2"
+            ],
+            [
+              "dm_1_settembre_2021",
+              "documento/allegato-ii/punto-5/voce_elenco-a"
+            ],
+            [
+              "dm_1_settembre_2021",
+              "documento/allegato-ii/punto-5/voce_elenco-b"
+            ],
+            [
+              "dm_1_settembre_2021",
+              "documento/art-4/comma-1"
+            ],
+            [
+              "dm_1_settembre_2021",
+              "documento/art-4/comma-2"
+            ],
+            [
+              "dm_1_settembre_2021",
+              "documento/art-4/comma-3"
+            ]
+          ],
+          "expected_evidence": [
+            [
+              "dm_1_settembre_2021",
+              "documento/art-4/comma-1"
+            ]
+          ],
+          "latency_ms": 7809.230482999965,
+          "passed": true,
+          "status": "ANSWER",
+          "trace_present": true
+        },
+        {
+          "case_id": "silver-0015",
+          "cited_evidence": [
+            [
+              "dlgs_81_2008",
+              "art_27__para_2"
+            ],
+            [
+              "dlgs_81_2008",
+              "art_27__para_3"
+            ],
+            [
+              "dm_132_2024",
+              "art_1__para_7"
+            ],
+            [
+              "dm_132_2024",
+              "art_1__para_8"
+            ],
+            [
+              "dm_132_2024",
+              "art_1__para_9"
+            ]
+          ],
+          "expected_evidence": [
+            [
+              "dm_132_2024",
+              "art_1__para_7"
+            ]
+          ],
+          "latency_ms": 7613.9947899999925,
+          "passed": true,
+          "status": "ANSWER",
+          "trace_present": true
+        },
+        {
+          "case_id": "silver-0016",
+          "cited_evidence": [],
+          "expected_evidence": [
+            [
+              "dpr_177_2011",
+              "art_2__para_2"
+            ]
+          ],
+          "latency_ms": 3380.834182000001,
+          "passed": false,
+          "status": "ABSTAIN",
+          "trace_present": true
+        },
+        {
+          "case_id": "silver-0017",
+          "cited_evidence": [
+            [
+              "dm_2_settembre_2021",
+              "documento/allegato-iii/punto-3.2/punto-3.2.5/tabella-p23-1"
+            ]
+          ],
+          "expected_evidence": [
+            [
+              "dm_2_settembre_2021",
+              "documento/allegato-iii/punto-3.2/punto-3.2.5/tabella-p23-1"
+            ]
+          ],
+          "latency_ms": 5926.628006999977,
+          "passed": true,
+          "status": "ANSWER",
+          "trace_present": true
+        },
+        {
+          "case_id": "silver-0018",
+          "cited_evidence": [
+            [
+              "dlgs_81_2008",
+              "art_26__para_3"
+            ]
+          ],
+          "expected_evidence": [
+            [
+              "dlgs_81_2008",
+              "art_26__para_3"
+            ]
+          ],
+          "latency_ms": 7515.529845000003,
+          "passed": true,
+          "status": "ANSWER",
+          "trace_present": true
+        },
+        {
+          "case_id": "silver-0019",
+          "cited_evidence": [],
+          "expected_evidence": [],
+          "latency_ms": 2472.8646879999587,
+          "passed": true,
+          "status": "ABSTAIN",
+          "trace_present": true
+        },
+        {
+          "case_id": "silver-0020",
+          "cited_evidence": [],
+          "expected_evidence": [],
+          "latency_ms": 3170.0902510000333,
+          "passed": true,
+          "status": "ABSTAIN",
+          "trace_present": true
+        }
+      ],
+      "name": "alpha"
+    },
+    {
+      "aggregate": {
+        "cases": 20,
+        "mean_latency_ms": 7508.320914550003,
+        "passed": 18,
+        "success_rate": 0.9
+      },
+      "cases": [
+        {
+          "case_id": "silver-0001",
+          "cited_evidence": [
+            [
+              "dlgs_81_2008",
+              "art_2__para_1.__point_q"
+            ],
+            [
+              "dlgs_81_2008",
+              "art_2__para_1.__point_r"
+            ],
+            [
+              "dlgs_81_2008",
+              "art_2__para_1.__point_s"
+            ],
+            [
+              "dlgs_81_2008",
+              "art_2__para_1.__point_t"
+            ]
+          ],
+          "expected_evidence": [
+            [
+              "dlgs_81_2008",
+              "art_2__para_1.__point_q"
+            ]
+          ],
+          "latency_ms": 10027.645368000038,
+          "passed": true,
+          "status": "ANSWER",
+          "trace_present": true
+        },
+        {
+          "case_id": "silver-0002",
+          "cited_evidence": [
+            [
+              "dlgs_81_2008",
+              "art_25__para_1.__point_i"
+            ],
+            [
+              "dlgs_81_2008",
+              "art_25__para_1.__point_l"
+            ],
+            [
+              "dlgs_81_2008",
+              "art_25__para_1.__point_m"
+            ]
+          ],
+          "expected_evidence": [
+            [
+              "dlgs_81_2008",
+              "art_25__para_1.__point_l"
+            ]
+          ],
+          "latency_ms": 10062.87464500008,
+          "passed": true,
+          "status": "ANSWER",
+          "trace_present": true
+        },
+        {
+          "case_id": "silver-0003",
+          "cited_evidence": [
+            [
+              "dlgs_81_2008",
+              "art_77__para_4.__point_h"
+            ]
+          ],
+          "expected_evidence": [
+            [
+              "dlgs_81_2008",
+              "art_77__para_4.__point_h"
+            ]
+          ],
+          "latency_ms": 7123.148659000094,
+          "passed": true,
+          "status": "ANSWER",
+          "trace_present": true
+        },
+        {
+          "case_id": "silver-0004",
+          "cited_evidence": [
+            [
+              "dlgs_81_2008",
+              "art_71__para_11"
+            ]
+          ],
+          "expected_evidence": [
+            [
+              "dlgs_81_2008",
+              "art_71__para_11"
+            ]
+          ],
+          "latency_ms": 10646.744386000024,
+          "passed": true,
+          "status": "ANSWER",
+          "trace_present": true
+        },
+        {
+          "case_id": "silver-0005",
+          "cited_evidence": [
+            [
+              "dpr_462_2001",
+              "art_4__para_1"
+            ],
+            [
+              "dpr_462_2001",
+              "art_4__para_2"
+            ],
+            [
+              "dpr_462_2001",
+              "art_4__para_3"
+            ],
+            [
+              "dpr_462_2001",
+              "art_4__para_4"
+            ]
+          ],
+          "expected_evidence": [
+            [
+              "dpr_462_2001",
+              "art_4__para_1"
+            ]
+          ],
+          "latency_ms": 7847.987477999936,
+          "passed": true,
+          "status": "ANSWER",
+          "trace_present": true
+        },
+        {
+          "case_id": "silver-0006",
+          "cited_evidence": [
+            [
+              "dm_132_2024",
+              "art_4__para_1"
+            ],
+            [
+              "dm_132_2024",
+              "art_4__para_2"
+            ]
+          ],
+          "expected_evidence": [
+            [
+              "dm_132_2024",
+              "art_4__para_1"
+            ]
+          ],
+          "latency_ms": 6016.213068999946,
+          "passed": true,
+          "status": "ANSWER",
+          "trace_present": true
+        },
+        {
+          "case_id": "silver-0007",
+          "cited_evidence": [
+            [
+              "dm_388_2003",
+              "art_3__para_5"
+            ]
+          ],
+          "expected_evidence": [
+            [
+              "dm_388_2003",
+              "art_3__para_5"
+            ]
+          ],
+          "latency_ms": 7535.380395999937,
+          "passed": true,
+          "status": "ANSWER",
+          "trace_present": true
+        },
+        {
+          "case_id": "silver-0008",
+          "cited_evidence": [
+            [
+              "dpr_177_2011",
+              "art_2__para_1.__point_a"
+            ],
+            [
+              "dpr_177_2011",
+              "art_2__para_1.__point_b"
+            ],
+            [
+              "dpr_177_2011",
+              "art_2__para_1.__point_c"
+            ]
+          ],
+          "expected_evidence": [
+            [
+              "dpr_177_2011",
+              "art_2__para_1.__point_c"
+            ]
+          ],
+          "latency_ms": 7027.9400650000525,
+          "passed": true,
+          "status": "ANSWER",
+          "trace_present": true
+        },
+        {
+          "case_id": "silver-0009",
+          "cited_evidence": [
+            [
+              "dlgs_81_2008",
+              "art_175__para_1"
+            ],
+            [
+              "dlgs_81_2008",
+              "art_175__para_2"
+            ],
+            [
+              "dlgs_81_2008",
+              "art_175__para_3"
+            ],
+            [
+              "dlgs_81_2008",
+              "art_175__para_4"
+            ]
+          ],
+          "expected_evidence": [
+            [
+              "dlgs_81_2008",
+              "art_175__para_3"
+            ]
+          ],
+          "latency_ms": 6646.505425999976,
+          "passed": true,
+          "status": "ANSWER",
+          "trace_present": true
+        },
+        {
+          "case_id": "silver-0010",
+          "cited_evidence": [
+            [
+              "dm_388_2003",
+              "art_2__para_3"
+            ],
+            [
+              "dm_388_2003",
+              "art_2__para_4"
+            ],
+            [
+              "dm_388_2003",
+              "art_2__para_5"
+            ]
+          ],
+          "expected_evidence": [
+            [
+              "dm_388_2003",
+              "art_2__para_5"
+            ]
+          ],
+          "latency_ms": 8072.445113000072,
+          "passed": true,
+          "status": "ANSWER",
+          "trace_present": true
+        },
+        {
+          "case_id": "silver-0011",
+          "cited_evidence": [
+            [
+              "dm_1_settembre_2021",
+              "documento/allegato-i/punto-1/voce_elenco-1"
+            ],
+            [
+              "dm_1_settembre_2021",
+              "documento/allegato-i/punto-1/voce_elenco-2"
+            ]
+          ],
+          "expected_evidence": [
+            [
+              "dm_1_settembre_2021",
+              "documento/allegato-i/punto-1/voce_elenco-1"
+            ]
+          ],
+          "latency_ms": 8726.563779999993,
+          "passed": true,
+          "status": "ANSWER",
+          "trace_present": true
+        },
+        {
+          "case_id": "silver-0012",
+          "cited_evidence": [
+            [
+              "accordo_59_csr_2025",
+              "documento/parte-iii/punto-1/punto-1.2/testo-1"
+            ]
+          ],
+          "expected_evidence": [
+            [
+              "accordo_59_csr_2025",
+              "documento/parte-iii/punto-1/punto-1.2/testo-1"
+            ]
+          ],
+          "latency_ms": 10934.426182999914,
+          "passed": true,
+          "status": "ANSWER",
+          "trace_present": true
+        },
+        {
+          "case_id": "silver-0013",
+          "cited_evidence": [],
+          "expected_evidence": [
+            [
+              "dm_2_settembre_2021",
+              "documento/allegato-i/punto-1.3/voce_elenco-6"
+            ]
+          ],
+          "latency_ms": 6613.343521000047,
+          "passed": false,
+          "status": "ABSTAIN",
+          "trace_present": true
+        },
+        {
+          "case_id": "silver-0014",
+          "cited_evidence": [
+            [
+              "dm_1_settembre_2021",
+              "documento/allegato-ii/punto-5/voce_elenco-1"
+            ],
+            [
+              "dm_1_settembre_2021",
+              "documento/allegato-ii/punto-5/voce_elenco-2"
+            ],
+            [
+              "dm_1_settembre_2021",
+              "documento/allegato-ii/punto-5/voce_elenco-a"
+            ],
+            [
+              "dm_1_settembre_2021",
+              "documento/allegato-ii/punto-5/voce_elenco-b"
+            ],
+            [
+              "dm_1_settembre_2021",
+              "documento/art-4/comma-1"
+            ],
+            [
+              "dm_1_settembre_2021",
+              "documento/art-4/comma-2"
+            ],
+            [
+              "dm_1_settembre_2021",
+              "documento/art-4/comma-3"
+            ]
+          ],
+          "expected_evidence": [
+            [
+              "dm_1_settembre_2021",
+              "documento/art-4/comma-1"
+            ]
+          ],
+          "latency_ms": 7874.342125999988,
+          "passed": true,
+          "status": "ANSWER",
+          "trace_present": true
+        },
+        {
+          "case_id": "silver-0015",
+          "cited_evidence": [
+            [
+              "dlgs_81_2008",
+              "art_27__para_2"
+            ],
+            [
+              "dlgs_81_2008",
+              "art_27__para_3"
+            ],
+            [
+              "dm_132_2024",
+              "art_1__para_7"
+            ],
+            [
+              "dm_132_2024",
+              "art_1__para_8"
+            ],
+            [
+              "dm_132_2024",
+              "art_1__para_9"
+            ]
+          ],
+          "expected_evidence": [
+            [
+              "dm_132_2024",
+              "art_1__para_7"
+            ]
+          ],
+          "latency_ms": 9351.832072999969,
+          "passed": true,
+          "status": "ANSWER",
+          "trace_present": true
+        },
+        {
+          "case_id": "silver-0016",
+          "cited_evidence": [],
+          "expected_evidence": [
+            [
+              "dpr_177_2011",
+              "art_2__para_2"
+            ]
+          ],
+          "latency_ms": 2846.9175679999807,
+          "passed": false,
+          "status": "ABSTAIN",
+          "trace_present": true
+        },
+        {
+          "case_id": "silver-0017",
+          "cited_evidence": [
+            [
+              "dm_2_settembre_2021",
+              "documento/allegato-iii/punto-3.2/punto-3.2.5/tabella-p23-1"
+            ]
+          ],
+          "expected_evidence": [
+            [
+              "dm_2_settembre_2021",
+              "documento/allegato-iii/punto-3.2/punto-3.2.5/tabella-p23-1"
+            ]
+          ],
+          "latency_ms": 7692.532415000073,
+          "passed": true,
+          "status": "ANSWER",
+          "trace_present": true
+        },
+        {
+          "case_id": "silver-0018",
+          "cited_evidence": [
+            [
+              "dlgs_81_2008",
+              "art_26__para_3"
+            ]
+          ],
+          "expected_evidence": [
+            [
+              "dlgs_81_2008",
+              "art_26__para_3"
+            ]
+          ],
+          "latency_ms": 8731.536025999958,
+          "passed": true,
+          "status": "ANSWER",
+          "trace_present": true
+        },
+        {
+          "case_id": "silver-0019",
+          "cited_evidence": [],
+          "expected_evidence": [],
+          "latency_ms": 1888.6955839999473,
+          "passed": true,
+          "status": "ABSTAIN",
+          "trace_present": true
+        },
+        {
+          "case_id": "silver-0020",
+          "cited_evidence": [],
+          "expected_evidence": [],
+          "latency_ms": 4499.344410000049,
+          "passed": true,
+          "status": "ABSTAIN",
+          "trace_present": true
+        }
+      ],
+      "name": "alpha-escalated"
+    }
+  ],
+  "schema_version": 1
+}
