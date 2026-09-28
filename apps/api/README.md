@@ -2,6 +2,27 @@
 
 Backend Python per OCIO.
 
+## API HTTP
+
+Applica le migrazioni e avvia l'app FastAPI:
+
+```sh
+alembic upgrade head
+uvicorn ocio.api:create_app --factory
+```
+
+Le route versionate sotto `/v1` gestiscono conversazioni, messaggi sincroni,
+`case_state`, citazioni e feedback. `/health/live` controlla il processo e
+`/health/ready` anche PostgreSQL. Ogni risposta include `X-Request-ID`: il client
+può inviare un UUID nello stesso header oppure lasciarlo generare al server. Le
+trace persistono lo stesso ID senza includere credenziali o configurazione del
+provider. I contratti di successo, l'unione `ANSWER`/`ABSTAIN` e l'envelope di
+errore stabile sono consultabili in `/docs` e `/openapi.json`.
+
+Il processo HTTP riceve il backend di chat tramite `create_app`; in assenza di
+un backend configurato, le route dati restano disponibili e l'invio di un
+messaggio risponde `503 chat_unavailable`.
+
 ## Importazione e normalizzazione del corpus
 
 Le fonti vengono lette soltanto dai file locali verificati tramite SHA-256 nel
