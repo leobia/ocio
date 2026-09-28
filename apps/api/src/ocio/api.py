@@ -37,6 +37,7 @@ class Reply:
     content: str
     citations: tuple[Mapping[str, Any], ...] = ()
     missing_information: tuple[str, ...] = ()
+    conditions: tuple[str, ...] = ()
     trace: Mapping[str, Any] | None = None
 
 
@@ -61,6 +62,7 @@ class UnconfiguredBackend:
 
 class Store(Protocol):
     def ready(self) -> bool: ...
+    def list_conversations(self) -> Sequence[Mapping[str, Any]]: ...
     def create_conversation(self, conversation_id: UUID) -> Mapping[str, Any]: ...
     def conversation(self, conversation_id: UUID) -> Mapping[str, Any] | None: ...
     def append_user_message(
@@ -91,6 +93,22 @@ class PostgresStore:
         except Exception:
             return False
 
+    def list_conversations(self) -> Sequence[Mapping[str, Any]]:
+        with self.engine.connect() as connection:
+            rows = connection.execute(text(
+                "SELECT c.id, c.creata_il, count(m.id) AS message_count, "
+                "(array_agg(m.contenuto ORDER BY m.creato_il DESC, m.id DESC) "
+                "FILTER (WHERE m.id IS NOT NULL))[1] AS last_message "
+                "FROM conversazioni c LEFT JOIN messaggi_conversazione m "
+                "ON m.conversazione_id = c.id GROUP BY c.id, c.creata_il "
+                "ORDER BY c.creata_il DESC"
+            )).mappings()
+            return tuple({
+                "id": str(row["id"]), "created_at": row["creata_il"],
+                "message_count": row["message_count"],
+                "last_message": row["last_message"],
+            } for row in rows)
+
     def create_conversation(self, conversation_id: UUID) -> Mapping[str, Any]:
         with self.engine.begin() as connection:
             row = connection.execute(text(
@@ -107,15 +125,35 @@ class PostgresStore:
             if conversation is None:
                 return None
             messages = [dict(row) for row in connection.execute(text(
-                "SELECT id, ruolo, contenuto, stato, creato_il "
+                "SELECT id, ruolo, contenuto, stato, creato_il, metadati "
                 "FROM messaggi_conversazione WHERE conversazione_id = :id "
                 "ORDER BY creato_il, id"
             ), {"id": conversation_id}).mappings()]
+            citation_rows = connection.execute(text(
+                "SELECT id, messaggio_id, dati FROM citazioni_api "
+                "WHERE messaggio_id IN (SELECT id FROM messaggi_conversazione "
+                "WHERE conversazione_id = :id) ORDER BY creata_il, id"
+            ), {"id": conversation_id}).mappings()
+            citations: dict[UUID, list[dict[str, Any]]] = {}
+            for row in citation_rows:
+                citations.setdefault(row["messaggio_id"], []).append({
+                    "id": str(row["id"]), **row["dati"],
+                })
             state = self._case_state(connection, conversation_id)
         return {
             "id": str(conversation["id"]),
             "created_at": conversation["creata_il"],
-            "messages": [_message_dict(item) for item in messages],
+            "messages": [
+                {
+                    **_message_dict(item),
+                    "citations": citations.get(item["id"], []),
+                    "missing_information": item["metadati"].get(
+                        "missing_information", []
+                    ),
+                    "conditions": item["metadati"].get("conditions", []),
+                }
+                for item in messages
+            ],
             "case_state": state,
         }
 
@@ -143,12 +181,17 @@ class PostgresStore:
         with self.engine.begin() as connection:
             message = connection.execute(text(
                 "INSERT INTO messaggi_conversazione "
-                "(id, conversazione_id, ruolo, contenuto, stato) "
-                "VALUES (:id, :conversation_id, 'assistant', :content, :status) "
+                "(id, conversazione_id, ruolo, contenuto, stato, metadati) "
+                "VALUES (:id, :conversation_id, 'assistant', :content, :status, "
+                "CAST(:metadata AS jsonb)) "
                 "RETURNING id, ruolo, contenuto, stato, creato_il"
             ), {
                 "id": message_id, "conversation_id": conversation_id,
                 "content": reply.content, "status": reply.status,
+                "metadata": json.dumps({
+                    "missing_information": reply.missing_information,
+                    "conditions": reply.conditions,
+                }),
             }).mappings().one()
             for value in reply.citations:
                 citation_id = uuid4()
@@ -307,14 +350,6 @@ class FeedbackInput(BaseModel):
         return self
 
 
-class MessageOutput(BaseModel):
-    id: UUID
-    role: Literal["user", "assistant"]
-    content: str
-    status: Literal["ANSWER", "ABSTAIN"] | None
-    created_at: datetime
-
-
 class CitationOutput(BaseModel):
     model_config = ConfigDict(extra="allow")
     id: UUID
@@ -324,7 +359,32 @@ class CitationOutput(BaseModel):
     document_urn: str | None = None
     document_valid_from: str | None = None
     document_valid_until: str | None = None
-    sources: list[dict[str, Any]] = []
+    sources: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class MessageOutput(BaseModel):
+    id: UUID
+    role: Literal["user", "assistant"]
+    content: str
+    status: Literal["ANSWER", "ABSTAIN"] | None
+    created_at: datetime
+    citations: list[CitationOutput] = Field(default_factory=list)
+    missing_information: list[str] = Field(default_factory=list)
+    conditions: list[str] = Field(default_factory=list)
+
+
+class ConversationSummary(BaseModel):
+    id: UUID
+    created_at: datetime
+    message_count: int
+    last_message: str | None
+
+
+class ConversationOutput(BaseModel):
+    id: UUID
+    created_at: datetime
+    messages: list[MessageOutput]
+    case_state: dict[str, dict[str, Any]]
 
 
 class AnswerResponse(BaseModel):
@@ -332,6 +392,7 @@ class AnswerResponse(BaseModel):
     message: MessageOutput
     citations: list[CitationOutput]
     missing_information: list[str]
+    conditions: list[str]
     trace_id: UUID
     request_id: UUID
 
@@ -341,6 +402,7 @@ class AbstentionResponse(BaseModel):
     message: MessageOutput
     citations: list[CitationOutput]
     missing_information: list[str]
+    conditions: list[str]
     trace_id: UUID
     request_id: UUID
 
@@ -429,7 +491,14 @@ def create_app(
         result.setdefault("case_state", {})
         return result
 
-    @app.get("/v1/conversations/{conversation_id}", responses=ERROR_RESPONSES)
+    @app.get("/v1/conversations", response_model=list[ConversationSummary])
+    def list_conversations() -> Sequence[Mapping[str, Any]]:
+        return selected_store.list_conversations()
+
+    @app.get(
+        "/v1/conversations/{conversation_id}", responses=ERROR_RESPONSES,
+        response_model=ConversationOutput,
+    )
     def get_conversation(conversation_id: UUID) -> Mapping[str, Any]:
         result = selected_store.conversation(conversation_id)
         if result is None:
@@ -463,6 +532,7 @@ def create_app(
         return {
             "status": reply.status, "message": message,
             "citations": citations, "missing_information": reply.missing_information,
+            "conditions": reply.conditions,
             "trace_id": str(trace_id), "request_id": str(request.state.request_id),
         }
 

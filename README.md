@@ -72,3 +72,22 @@ che identifica il documento.
 .venv/bin/pytest
 docker compose -f ../../compose.yaml exec db psql -U ocio -d ocio -c '\dx'
 ```
+
+## Interfaccia web
+
+Con l'API avviata su `http://127.0.0.1:8000`:
+
+```sh
+cd apps/web
+npm install
+npm run dev
+```
+
+Apri `http://127.0.0.1:3000`. In ambienti diversi imposta `NUXT_API_BASE`
+all'indirizzo interno della API: il browser comunica soltanto con il proxy Nuxt.
+
+```sh
+npm run typecheck
+npm run test:e2e
+npm run build
+```
