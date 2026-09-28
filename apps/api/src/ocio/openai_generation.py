@@ -13,6 +13,7 @@ from ocio.generation import (
     ProviderGenerationError,
     ProviderRequest,
 )
+from ocio.sufficiency import SufficiencyRequest
 
 
 class ResponsesClient(Protocol):
@@ -68,6 +69,47 @@ class OpenAIAnswerProvider:
         return value
 
 
+class OpenAISufficiencyJudge:
+    """Evaluate whether supplied passages can answer the question."""
+
+    def __init__(self, client: ResponsesClient) -> None:
+        self.client = client
+
+    def judge(self, request: SufficiencyRequest) -> dict[str, Any]:
+        try:
+            response = self.client.create(
+                model=request.model,
+                instructions=(
+                    "Decide whether the supplied evidence is relevant and sufficient "
+                    "to answer the question. Return ANSWER only when it is sufficient."
+                ),
+                input=json.dumps(
+                    {"question": request.question, "evidence": [
+                        {"evidence_id": item.evidence_id, "passage": item.passage}
+                        for item in request.evidence
+                    ]},
+                    ensure_ascii=False, separators=(",", ":"),
+                ),
+                text={"format": {
+                    "type": "json_schema", "name": "sufficiency_decision",
+                    "strict": True, "schema": SUFFICIENCY_SCHEMA,
+                }},
+                store=False,
+            )
+        except (OpenAIError, TypeError, ValueError) as error:
+            raise ProviderGenerationError(f"Chiamata OpenAI fallita: {error}") from error
+        output_text = getattr(response, "output_text", None)
+        if not isinstance(output_text, str) or not output_text:
+            raise ProviderGenerationError("OpenAI non ha restituito il giudizio.")
+        try:
+            value = json.loads(output_text)
+        except json.JSONDecodeError as error:
+            raise ProviderGenerationError("Giudizio OpenAI non decodificabile.") from error
+        if not isinstance(value, dict):
+            raise ProviderGenerationError("Il giudizio OpenAI non è un oggetto JSON.")
+        return value
+
+
 def provider_from_environment() -> AnswerProvider:
     api_key = os.environ.get("OPENAI_API_KEY")
     if not api_key:
@@ -103,5 +145,23 @@ GROUNDED_ANSWER_SCHEMA: dict[str, Any] = {
         "missing_data": {"type": "array", "items": {"type": "string"}},
     },
     "required": ["claims", "conditions", "missing_data"],
+    "additionalProperties": False,
+}
+
+
+SUFFICIENCY_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "decision": {"type": "string", "enum": ["ANSWER", "ABSTAIN"]},
+        "reason_code": {"type": "string", "minLength": 1},
+        "missing_information": {
+            "type": "array", "items": {"type": "string", "minLength": 1}
+        },
+        "evidence_ids": {
+            "type": "array", "items": {"type": "string", "minLength": 1},
+            "uniqueItems": True,
+        },
+    },
+    "required": ["decision", "reason_code", "missing_information", "evidence_ids"],
     "additionalProperties": False,
 }

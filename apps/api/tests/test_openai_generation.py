@@ -7,7 +7,12 @@ from dataclasses import dataclass
 import pytest
 
 from ocio.generation import ProviderEvidence, ProviderGenerationError, ProviderRequest
-from ocio.openai_generation import OpenAIAnswerProvider, provider_from_environment
+from ocio.openai_generation import (
+    OpenAIAnswerProvider,
+    OpenAISufficiencyJudge,
+    provider_from_environment,
+)
+from ocio.sufficiency import SufficiencyEvidence, SufficiencyRequest
 
 
 @dataclass
@@ -61,3 +66,22 @@ def test_live_adapter_requires_server_credential(monkeypatch: pytest.MonkeyPatch
 
     with pytest.raises(ProviderGenerationError, match="OPENAI_API_KEY"):
         provider_from_environment()
+
+
+def test_sufficiency_judge_uses_strict_schema() -> None:
+    client = FakeResponses(Response(
+        '{"decision":"ANSWER","reason_code":"SUFFICIENT",'
+        '"missing_information":[],"evidence_ids":["C1"]}'
+    ))
+    judge_request = SufficiencyRequest(
+        "domanda", (SufficiencyEvidence("C1", "passaggio", 0.9),),
+        "judge-model", "prompt-v1",
+    )
+
+    result = OpenAISufficiencyJudge(client).judge(judge_request)
+
+    assert result["decision"] == "ANSWER"
+    call = client.calls[0]
+    assert call["model"] == "judge-model"
+    assert call["store"] is False
+    assert call["text"]["format"]["strict"] is True  # type: ignore[index]
