@@ -1,0 +1,63 @@
+"""Offline tests for the OpenAI grounded-answer adapter."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+import pytest
+
+from ocio.generation import ProviderEvidence, ProviderGenerationError, ProviderRequest
+from ocio.openai_generation import OpenAIAnswerProvider, provider_from_environment
+
+
+@dataclass
+class Response:
+    output_text: str
+
+
+class FakeResponses:
+    def __init__(self, response: object) -> None:
+        self.response = response
+        self.calls: list[dict[str, object]] = []
+
+    def create(self, **request: object) -> object:
+        self.calls.append(request)
+        return self.response
+
+
+def request() -> ProviderRequest:
+    return ProviderRequest(
+        "domanda", (ProviderEvidence("C1", "passaggio"),), "test-model",
+        {"temperature": 0}, "prompt-v1", 1,
+    )
+
+
+def test_uses_responses_strict_schema_without_sending_provenance() -> None:
+    client = FakeResponses(Response(
+        '{"claims":[{"text":"claim","citation_ids":["C1"]}],'
+        '"conditions":[],"missing_data":[]}'
+    ))
+
+    result = OpenAIAnswerProvider(client).generate(request())
+
+    assert result["claims"][0]["citation_ids"] == ["C1"]
+    call = client.calls[0]
+    assert call["model"] == "test-model"
+    assert call["store"] is False
+    assert call["temperature"] == 0
+    assert "passaggio" in str(call["input"])
+    assert "https://" not in str(call["input"])
+    assert call["text"]["format"]["strict"] is True  # type: ignore[index]
+
+
+@pytest.mark.parametrize("response", [Response("not-json"), object()])
+def test_rejects_invalid_openai_output(response: object) -> None:
+    with pytest.raises(ProviderGenerationError):
+        OpenAIAnswerProvider(FakeResponses(response)).generate(request())
+
+
+def test_live_adapter_requires_server_credential(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+
+    with pytest.raises(ProviderGenerationError, match="OPENAI_API_KEY"):
+        provider_from_environment()
