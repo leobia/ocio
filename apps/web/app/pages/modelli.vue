@@ -113,13 +113,13 @@ onMounted(load)
         <fieldset :disabled="saving" class="space-y-6">
           <UFormField label="Nome del modello" required><UInput v-model="name" :disabled="Boolean(selected)" maxlength="200" required class="w-full" /></UFormField>
           <div v-if="revision" class="flex flex-wrap items-center gap-3"><UBadge variant="subtle">Revisione {{ revision.number }}</UBadge><p class="text-sm text-muted">Salvare crea una nuova revisione, senza aggiornare automaticamente gli incarichi.</p></div>
-          <div><h2 class="text-lg font-semibold">Sezioni del fascicolo</h2><p class="text-muted">Per ogni sezione indica cosa cercare e come compilare il contenuto.</p></div>
+          <div><h2 class="text-lg font-semibold">Sezioni del fascicolo</h2><p class="text-muted">Definisci la struttura del fascicolo e cosa deve contenere ogni sezione.</p></div>
           <details><summary class="cursor-pointer text-sm text-muted">Introduzione del modello (facoltativa)</summary><UFormField class="mt-4" label="Introduzione Markdown"><UTextarea v-model="preamble" :rows="3" class="w-full" /></UFormField></details>
           <UCard v-for="(section, index) in sections" :key="section.id" as="section" :aria-label="`Sezione ${index + 1}`">
             <template #header><div class="flex flex-wrap items-center justify-between gap-3"><h3 class="font-semibold">Sezione {{ index + 1 }}</h3><div class="flex gap-1"><UButton icon="i-lucide-arrow-up" color="neutral" variant="ghost" :disabled="index === 0 || saving" :aria-label="`Sposta su sezione ${index + 1}`" @click="move(index, -1)" /><UButton icon="i-lucide-arrow-down" color="neutral" variant="ghost" :disabled="index === sections.length - 1 || saving" :aria-label="`Sposta giù sezione ${index + 1}`" @click="move(index, 1)" /><UButton icon="i-lucide-trash-2" color="neutral" variant="ghost" :disabled="saving" :aria-label="`Rimuovi sezione ${index + 1}`" @click="sections.splice(index, 1)" /></div></div></template>
             <div class="space-y-4">
               <UFormField label="Titolo della sezione" required><UInput :id="`section-title-${section.id}`" v-model="section.title" required class="w-full" /></UFormField>
-              <UFormField label="Indicazioni per l’agente" description="Contenuti attesi, fonti da usare e cosa fare se mancano informazioni."><UTextarea v-model="section.instruction" :rows="3" class="w-full" /></UFormField>
+              <UFormField label="Descrizione della sezione" description="Contenuti da trattare e approfondimenti specifici di questa sezione."><UTextarea v-model="section.instruction" :rows="3" class="w-full" /></UFormField>
               <details><summary class="cursor-pointer text-sm text-muted">Contenuto iniziale{{ section.body ? ' · presente' : ' (facoltativo)' }}</summary><UFormField class="mt-4" label="Contenuto iniziale Markdown"><UTextarea v-model="section.body" :rows="4" class="w-full" /></UFormField></details>
             </div>
           </UCard>

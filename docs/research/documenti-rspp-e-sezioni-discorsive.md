@@ -90,12 +90,14 @@ duplicabile per attività o fase di lavoro:
 5. **Approfondimenti e allegati** — sezioni per rischi o temi specifici,
    riferimenti, foto, planimetrie, verbali e documenti collegati.
 
-Il prompt di default dell’agente dovrebbe chiedere prosa professionale completa
+Il prompt generale dell’applicazione richiede prosa professionale completa
 ma fedele: ampliare gli appunti collegando osservazioni, attività e conseguenze
 senza introdurre fatti, misure o valutazioni non presenti. Il settore aziendale
 può selezionare esempi e domande pertinenti; non deve far presumere macchinari,
 esposizioni o procedure tipiche del comparto. Le incertezze vanno mantenute nel
-testo e lasciate all’RSPP per la revisione.
+testo e lasciate all’RSPP per la revisione. Schema e descrizioni specifiche delle
+sezioni sono personalizzabili dall’utente e passati separatamente al generatore;
+le regole applicative comuni non sono ripetute nelle descrizioni del modello.
 
 La #25 riguarda l’editing; la #26 acquisizione e analisi del materiale; la #27
 compilazione assistita; la #28 revisione complessiva ed esportazione. Il prototipo A approvato è conservato sul ramo

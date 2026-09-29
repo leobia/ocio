@@ -184,7 +184,7 @@ test('crea un incarico e applica una migrazione visibile senza perdere il testo'
   await page.getByRole('button', { name: 'Aggiungi sezione', exact: true }).click()
   const added = page.getByRole('region', { name: 'Sezione 3', exact: true })
   await added.getByLabel('Titolo della sezione').fill('Formazione')
-  await added.getByLabel('Indicazioni per l’agente').fill('Indicare attestati.')
+  await added.getByLabel('Descrizione della sezione').fill('Indicare attestati.')
   await page.getByRole('button', { name: 'Crea revisione' }).click()
   await expect(page.getByRole('status')).toContainText('Revisione 2 creata')
   await page.getByRole('link', { name: 'Torna al fascicolo', exact: true }).click()

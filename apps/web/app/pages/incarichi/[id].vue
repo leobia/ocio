@@ -108,8 +108,8 @@ onMounted(load)
               <template #footer><UButton variant="link" :to="`/modelli?model=${engagement.template.id}&engagement=${engagement.id}`">Modelli fascicolo</UButton></template>
             </UCard>
             <UCard>
-              <template #header><h3 class="font-semibold">Indicazioni del modello</h3></template>
-              <p class="mb-2 text-sm font-medium">{{ section.title }}</p><p class="whitespace-pre-wrap text-sm text-muted">{{ engagement.template_revision.instructions[section.title] || 'Nessuna indicazione per questa sezione.' }}</p>
+              <template #header><h3 class="font-semibold">Descrizione della sezione</h3></template>
+              <p class="mb-2 text-sm font-medium">{{ section.title }}</p><p class="whitespace-pre-wrap text-sm text-muted">{{ engagement.template_revision.instructions[section.title] || 'Nessuna descrizione per questa sezione.' }}</p>
             </UCard>
           </aside>
         </div>

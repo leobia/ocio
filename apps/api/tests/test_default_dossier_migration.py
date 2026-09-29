@@ -119,3 +119,75 @@ def test_default_revision_preserves_cases_custom_templates_and_history() -> None
                 transaction.rollback()
     finally:
         engine.dispose()
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("customized", [False, True])
+def test_description_revision_preserves_customizations_and_case_text(customized: bool) -> None:
+    try:
+        url = database_url()
+    except RuntimeError:
+        pytest.skip("PostgreSQL environment variables are not configured")
+    engine = create_engine(url)
+    separation = runpy.run_path(str(VERSIONS / "20260929_03_separate_section_descriptions.py"))
+    schema = f"test_descriptions_{uuid4().hex}"
+    case_id = uuid4()
+    original = "# Fascicolo\n\n## Ambienti di lavoro\n\nTesto  manuale.\n\n\n"
+    try:
+        with engine.connect() as connection:
+            transaction = connection.begin()
+            try:
+                connection.execute(text(f'CREATE SCHEMA "{schema}"'))
+                connection.execute(text(f'SET LOCAL search_path TO "{schema}"'))
+                with Operations.context(MigrationContext.configure(connection)):
+                    runpy.run_path(str(VERSIONS / "20260929_01_create_engagements.py"))["upgrade"]()
+                    update["upgrade"]()
+                    adopted_revision = update["REVISION_ID"]
+                    expected_schema = update["MARKDOWN"]
+                    descriptions = dict(update["INSTRUCTIONS"])
+                    if customized:
+                        adopted_revision = uuid4()
+                        expected_schema += "\n## Sezione personalizzata\n\nContenuto iniziale.\n"
+                        descriptions["Ambienti di lavoro"] = update["WRITING_GUIDANCE"] + "Descrivi solo il magazzino."
+                        descriptions["Sezione personalizzata"] = "Approfondimento deciso dal consulente."
+                        connection.execute(text(
+                            "INSERT INTO revisioni_modello_fascicolo "
+                            "(id, modello_id, numero, schema_markdown, indicazioni) "
+                            "VALUES (:id, :template, 3, :schema, CAST(:descriptions AS jsonb))"
+                        ), {"id": adopted_revision, "template": update["TEMPLATE_ID"],
+                            "schema": expected_schema, "descriptions": json.dumps(descriptions)})
+                    connection.execute(text(
+                        "INSERT INTO incarichi "
+                        "(id, azienda, sede, data_riferimento, revisione_modello_id, fascicolo_markdown) "
+                        "VALUES (:id, 'Azienda fittizia', 'Sede', '2026-09-29', :revision, :markdown)"
+                    ), {"id": case_id, "revision": adopted_revision, "markdown": original})
+                    separation["upgrade"]()
+                    published = connection.execute(text(
+                        "SELECT numero, schema_markdown, indicazioni FROM revisioni_modello_fascicolo "
+                        "WHERE id = :id"
+                    ), {"id": separation["REVISION_ID"]}).mappings().one()
+                    assert published["numero"] == (4 if customized else 3)
+                    assert published["schema_markdown"] == expected_schema
+                    if customized:
+                        assert published["indicazioni"]["Ambienti di lavoro"] == "Descrivi solo il magazzino."
+                        assert published["indicazioni"]["Sezione personalizzata"] == "Approfondimento deciso dal consulente."
+                    else:
+                        assert published["indicazioni"] == separation["DESCRIPTIONS"]
+                    assert all(not value.startswith(update["WRITING_GUIDANCE"])
+                               for value in published["indicazioni"].values())
+                    assert connection.execute(text(
+                        "SELECT indicazioni FROM revisioni_modello_fascicolo WHERE id = :id"
+                    ), {"id": adopted_revision}).scalar_one() == descriptions
+                    assert connection.execute(text(
+                        "SELECT fascicolo_markdown FROM incarichi WHERE id = :id"
+                    ), {"id": case_id}).scalar_one() == original
+                    proposal = connection.execute(text(
+                        "SELECT fascicolo_proposto, diff FROM migrazioni_fascicolo "
+                        "WHERE incarico_id = :id AND stato = 'proposta'"
+                    ), {"id": case_id}).one()
+                    assert proposal.fascicolo_proposto == original
+                    assert proposal.diff == ""
+            finally:
+                transaction.rollback()
+    finally:
+        engine.dispose()
