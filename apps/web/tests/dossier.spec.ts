@@ -51,7 +51,8 @@ test('modifica una sezione lunga con tabella, conserva le altre e recupera un sa
   await page.getByRole('button', { name: 'Dettagli incarico', exact: true }).click()
   await expect(page.getByText('Descrivere le fasi osservate.', { exact: true })).toBeVisible()
   await editor.locator('td').first().click()
-  await page.getByRole('button', { name: 'Aggiungi riga', exact: true }).click()
+  await page.getByRole('button', { name: 'Tabella', exact: true }).click()
+  await page.getByRole('menuitem', { name: 'Aggiungi riga', exact: true }).click()
   await expect(editor.getByRole('row')).toHaveCount(3)
   await editor.getByRole('row').last().locator('td').first().fill('Avvitatore')
   await editor.locator('p').first().click()
@@ -88,4 +89,29 @@ test('modifica una sezione lunga con tabella, conserva le altre e recupera un sa
   await page.setViewportSize({ width: 390, height: 844 })
   await expect(editor).toBeVisible()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+})
+
+test('scrive più paragrafi sotto i titoli vuoti senza bloccare editor e annullamento', async ({ page }) => {
+  const markdown = '## Attività\n\n### Fasi operative\n\n### Mansioni\n\n## Ambienti\n\nDa descrivere.\n'
+  await page.route('**/api/v1/engagements/**', route => route.fulfill({ json: {
+    id: 'empty', company: 'Prova sezioni vuote', site: 'Padova', reference_date: '2026-09-29',
+    dossier_markdown: markdown, template: { name: 'Modello' }, template_revision: { number: 1, instructions: {} },
+    history: [], pending_migration: null,
+  } }))
+  await page.goto('/incarichi/empty')
+  const editor = page.getByRole('textbox', { name: 'Testo: Attività', exact: true })
+  await editor.click()
+  await page.keyboard.press('Control+End')
+  await page.keyboard.press('Enter')
+  await page.keyboard.type('Prima riga.')
+  await page.keyboard.press('Enter')
+  await page.keyboard.type('Seconda riga.')
+  await expect(editor.locator('p')).toContainText(['Prima riga.', 'Seconda riga.'])
+  await page.getByRole('button', { name: 'Annulla', exact: true }).click()
+  await expect(editor).not.toContainText('Seconda riga.')
+  await page.getByRole('button', { name: 'Ripeti', exact: true }).click()
+  await expect(editor).toContainText('Seconda riga.')
+  await page.getByRole('button', { name: '02 Ambienti', exact: true }).click()
+  await page.getByRole('button', { name: '01 Attività', exact: true }).click()
+  await expect(editor).toContainText('Prima riga.')
 })
