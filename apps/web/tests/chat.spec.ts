@@ -55,7 +55,7 @@ test('crea una conversazione e rende verificabili risposta, stato e feedback', a
   await expect(page.getByText('Mansione e rischi specifici del lavoratore.')).toBeVisible()
   await expect(page.getByText('La formazione varia in base ai rischi riferiti alle mansioni.')).toBeVisible()
   await page.getByRole('button', { name: /Decreto legislativo/ }).click()
-  await expect(page.getByRole('complementary', { name: 'Dettaglio fonte' })).toContainText(citation.passage)
+  await expect(page.getByRole('dialog', { name: citation.document_title })).toContainText(citation.passage)
   await expect(page.getByRole('link', { name: /Apri la fonte ufficiale/ })).toHaveAttribute('href', 'https://www.normattiva.it/')
   await page.getByRole('button', { name: 'Chiudi dettaglio fonte' }).click()
 
@@ -68,7 +68,8 @@ test('crea una conversazione e rende verificabili risposta, stato e feedback', a
   await page.getByRole('button', { name: 'Risposta utile' }).click()
   await expect(page.getByText('Salvato')).toBeVisible()
   await page.getByRole('button', { name: 'Aggiungi dettagli' }).click()
-  await page.getByLabel('Motivo').selectOption('citation')
+  await page.getByLabel('Motivo').click()
+  await page.getByRole('option', { name: 'Fonte', exact: true }).click()
   await page.getByLabel('Nota opzionale').fill('Fonte chiara e pertinente.')
   await page.getByRole('button', { name: 'Salva dettagli' }).click()
   await expect(page.getByText('Salvato')).toBeVisible()
@@ -104,4 +105,92 @@ test('distingue astensione e consente retry dopo un errore provider', async ({ p
   await page.getByRole('button', { name: 'Riprova' }).click()
   await expect(page.getByText('Evidenza insufficiente')).toBeVisible()
   await expect(page.getByText('Il settore di attività.')).toBeVisible()
+})
+
+test('crea un incarico e applica una migrazione visibile senza perdere il testo', async ({ page }) => {
+  const templateId = '44444444-4444-4444-8444-444444444444'
+  const revision1 = '55555555-5555-4555-8555-555555555555'
+  const revision2 = '66666666-6666-4666-8666-666666666666'
+  const migrationId = '77777777-7777-4777-8777-777777777777'
+  const schema = '# Fascicolo\n\n## Identità\n\n## Macchine\n'
+  let templates = [{
+    id: templateId, name: 'Fascicolo sicurezza aziendale', is_default: true, created_at: createdAt,
+    revisions: [{ id: revision1, number: 1, markdown: schema, instructions: { Macchine: 'Elencare le attrezzature.' }, created_at: createdAt }],
+  }]
+  let summaries: unknown[] = []
+  let engagement: Record<string, any> | null = null
+
+  await page.route('**/api/**', (route) => {
+    const path = new URL(route.request().url()).pathname
+    const method = route.request().method()
+    if (path === '/api/v1/dossier-templates' && method === 'GET') return json(route, templates)
+    if (path === '/api/v1/engagements' && method === 'GET') return json(route, summaries)
+    if (path === '/api/v1/engagements' && method === 'POST') {
+      engagement = {
+        id: conversationId, company: 'Officina esempio', site: 'Sede nord', reference_date: '2026-09-29',
+        dossier_markdown: schema, created_at: createdAt, updated_at: createdAt,
+        template: { id: templateId, name: templates[0]!.name },
+        template_revision: { id: revision1, number: 1, instructions: templates[0]!.revisions[0]!.instructions },
+        history: [{ id: assistantId, number: 1, template_revision_id: revision1, dossier_markdown: schema, reason: 'creazione', created_at: createdAt }],
+        pending_migration: null,
+      }
+      summaries = [{ id: conversationId, company: 'Officina esempio', site: 'Sede nord', reference_date: '2026-09-29', created_at: createdAt, template_name: templates[0]!.name, template_revision: 1, has_pending_migration: false }]
+      return json(route, engagement, 201)
+    }
+    if (path === `/api/v1/engagements/${conversationId}` && method === 'GET') return json(route, engagement)
+    if (path.endsWith('/dossier') && method === 'PATCH') {
+      const body = route.request().postDataJSON()
+      engagement!.dossier_markdown = body.markdown
+      engagement!.history.unshift({ id: citation.id, number: 2, template_revision_id: revision1, dossier_markdown: body.markdown, reason: 'modifica_manuale', created_at: createdAt })
+      return json(route, engagement)
+    }
+    if (path === `/api/v1/dossier-templates/${templateId}/revisions` && method === 'POST') {
+      const body = route.request().postDataJSON()
+      const revision = { id: revision2, number: 2, markdown: body.markdown, instructions: body.instructions, created_at: createdAt }
+      templates = [{ ...templates[0]!, revisions: [...templates[0]!.revisions, revision] }]
+      engagement!.pending_migration = {
+        id: migrationId, source_revision_id: revision1, target_revision_id: revision2, target_revision: 2,
+        proposed_markdown: `${engagement!.dossier_markdown}\n## Formazione\n`,
+        diff: '+## Formazione\n', created_at: createdAt,
+      }
+      return json(route, revision, 201)
+    }
+    if (path.endsWith(`/migrations/${migrationId}/apply`) && method === 'POST') {
+      engagement!.dossier_markdown = engagement!.pending_migration.proposed_markdown
+      engagement!.template_revision = { id: revision2, number: 2, instructions: { Formazione: 'Indicare attestati.' } }
+      engagement!.pending_migration = null
+      return json(route, engagement)
+    }
+    return json(route, { error: { message: `Unexpected request: ${method} ${path}` } }, 404)
+  })
+
+  await page.goto('/incarichi')
+  await expect(page.getByText('Crea un incarico oppure aprine uno esistente.')).toBeVisible()
+  await page.getByRole('link', { name: 'Nuovo incarico', exact: true }).click()
+  await page.getByLabel('Azienda', { exact: true }).fill('Officina esempio')
+  await page.getByLabel('Sede', { exact: true }).fill('Sede nord')
+  await page.getByLabel('Data di riferimento', { exact: true }).fill('2026-09-29')
+  await page.getByRole('button', { name: 'Crea incarico' }).click()
+  await expect(page.getByRole('heading', { name: 'Officina esempio' })).toBeVisible()
+
+  const dossier = page.getByLabel('Fascicolo Markdown')
+  await dossier.fill(`${schema}\nTesto manuale approvato.`)
+  await page.getByRole('button', { name: 'Salva fascicolo' }).click()
+  await expect(page.getByText('Versione salvata nella cronologia.')).toBeVisible()
+
+  await page.getByRole('link', { name: 'Modelli fascicolo', exact: true }).click()
+  await page.getByRole('button', { name: 'Aggiungi sezione', exact: true }).click()
+  const added = page.getByRole('region', { name: 'Sezione 3', exact: true })
+  await added.getByLabel('Titolo della sezione').fill('Formazione')
+  await added.getByLabel('Indicazioni per l’agente').fill('Indicare attestati.')
+  await page.getByRole('button', { name: 'Crea revisione' }).click()
+  await expect(page.getByRole('status')).toContainText('Revisione 2 creata')
+  await page.getByRole('link', { name: 'Torna al fascicolo', exact: true }).click()
+  await page.getByRole('button', { name: 'Confronta proposta', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Passa alla revisione 2' })).toBeVisible()
+  await page.getByRole('button', { name: 'Applica migrazione' }).click()
+  await expect(page.getByText('Fascicolo sicurezza aziendale · revisione 2')).toBeVisible()
+  await expect(dossier).toHaveValue(/Testo manuale approvato[\s\S]*## Formazione/)
+  await page.reload()
+  await expect(dossier).toHaveValue(/Testo manuale approvato[\s\S]*## Formazione/)
 })

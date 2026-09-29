@@ -17,6 +17,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy import Engine, create_engine, text
 
 from ocio.database import database_url
+from ocio.dossier import migration, validate_instructions
 
 LOGGER = logging.getLogger("ocio.api")
 
@@ -79,6 +80,24 @@ class Store(Protocol):
     def citation(self, citation_id: UUID) -> Mapping[str, Any] | None: ...
     def feedback(
         self, message_id: UUID, values: Mapping[str, Any]
+    ) -> Mapping[str, Any] | None: ...
+    def list_templates(self) -> Sequence[Mapping[str, Any]]: ...
+    def create_template(
+        self, template_id: UUID, revision_id: UUID, values: Mapping[str, Any]
+    ) -> Mapping[str, Any]: ...
+    def revise_template(
+        self, template_id: UUID, revision_id: UUID, values: Mapping[str, Any]
+    ) -> Mapping[str, Any] | None: ...
+    def list_engagements(self) -> Sequence[Mapping[str, Any]]: ...
+    def create_engagement(
+        self, engagement_id: UUID, values: Mapping[str, Any]
+    ) -> Mapping[str, Any] | None: ...
+    def engagement(self, engagement_id: UUID) -> Mapping[str, Any] | None: ...
+    def update_dossier(
+        self, engagement_id: UUID, markdown: str
+    ) -> Mapping[str, Any] | None: ...
+    def apply_migration(
+        self, engagement_id: UUID, migration_id: UUID
     ) -> Mapping[str, Any] | None: ...
 
 
@@ -298,6 +317,266 @@ class PostgresStore:
             "updated_at": row["aggiornato_il"],
         }
 
+    def list_templates(self) -> Sequence[Mapping[str, Any]]:
+        with self.engine.connect() as connection:
+            templates = connection.execute(text(
+                "SELECT id, nome, predefinito, creato_il FROM modelli_fascicolo "
+                "ORDER BY predefinito DESC, nome"
+            )).mappings().all()
+            revisions = connection.execute(text(
+                "SELECT id, modello_id, numero, schema_markdown, indicazioni, creata_il "
+                "FROM revisioni_modello_fascicolo ORDER BY modello_id, numero"
+            )).mappings().all()
+        by_template: dict[UUID, list[dict[str, Any]]] = {}
+        for row in revisions:
+            by_template.setdefault(row["modello_id"], []).append(_template_revision(dict(row)))
+        return tuple({
+            "id": str(row["id"]), "name": row["nome"],
+            "is_default": row["predefinito"], "created_at": row["creato_il"],
+            "revisions": by_template.get(row["id"], []),
+        } for row in templates)
+
+    def create_template(
+        self, template_id: UUID, revision_id: UUID, values: Mapping[str, Any]
+    ) -> Mapping[str, Any]:
+        with self.engine.begin() as connection:
+            template = connection.execute(text(
+                "INSERT INTO modelli_fascicolo (id, nome) VALUES (:id, :name) "
+                "RETURNING id, nome, predefinito, creato_il"
+            ), {"id": template_id, **values}).mappings().one()
+            revision = connection.execute(text(
+                "INSERT INTO revisioni_modello_fascicolo "
+                "(id, modello_id, numero, schema_markdown, indicazioni) "
+                "VALUES (:id, :template_id, 1, :markdown, CAST(:instructions AS jsonb)) "
+                "RETURNING id, modello_id, numero, schema_markdown, indicazioni, creata_il"
+            ), {
+                "id": revision_id, "template_id": template_id,
+                "markdown": values["markdown"],
+                "instructions": json.dumps(values["instructions"]),
+            }).mappings().one()
+        return {
+            "id": str(template["id"]), "name": template["nome"],
+            "is_default": template["predefinito"], "created_at": template["creato_il"],
+            "revisions": [_template_revision(dict(revision))],
+        }
+
+    def revise_template(
+        self, template_id: UUID, revision_id: UUID, values: Mapping[str, Any]
+    ) -> Mapping[str, Any] | None:
+        with self.engine.begin() as connection:
+            template = connection.execute(text(
+                "SELECT id FROM modelli_fascicolo WHERE id = :id FOR UPDATE"
+            ), {"id": template_id}).scalar_one_or_none()
+            if template is None:
+                return None
+            number = connection.execute(text(
+                "SELECT COALESCE(max(numero), 0) + 1 FROM revisioni_modello_fascicolo "
+                "WHERE modello_id = :id"
+            ), {"id": template_id}).scalar_one()
+            revision = connection.execute(text(
+                "INSERT INTO revisioni_modello_fascicolo "
+                "(id, modello_id, numero, schema_markdown, indicazioni) "
+                "VALUES (:id, :template_id, :number, :markdown, CAST(:instructions AS jsonb)) "
+                "RETURNING id, modello_id, numero, schema_markdown, indicazioni, creata_il"
+            ), {
+                "id": revision_id, "template_id": template_id, "number": number,
+                "markdown": values["markdown"],
+                "instructions": json.dumps(values["instructions"]),
+            }).mappings().one()
+            engagements = connection.execute(text(
+                "SELECT i.id, i.revisione_modello_id, i.fascicolo_markdown "
+                "FROM incarichi i JOIN revisioni_modello_fascicolo r "
+                "ON r.id = i.revisione_modello_id WHERE r.modello_id = :id"
+            ), {"id": template_id}).mappings().all()
+            for item in engagements:
+                proposed, diff = migration(item["fascicolo_markdown"], values["markdown"])
+                connection.execute(text(
+                    "UPDATE migrazioni_fascicolo SET stato = 'superata' "
+                    "WHERE incarico_id = :engagement_id AND stato = 'proposta'"
+                ), {"engagement_id": item["id"]})
+                connection.execute(text(
+                    "INSERT INTO migrazioni_fascicolo "
+                    "(id, incarico_id, revisione_origine_id, revisione_destinazione_id, "
+                    "fascicolo_origine, fascicolo_proposto, diff) VALUES "
+                    "(:id, :engagement_id, :source_id, :target_id, :current, :proposed, :diff)"
+                ), {
+                    "id": uuid4(), "engagement_id": item["id"],
+                    "source_id": item["revisione_modello_id"], "target_id": revision_id,
+                    "current": item["fascicolo_markdown"], "proposed": proposed, "diff": diff,
+                })
+        return _template_revision(dict(revision))
+
+    def list_engagements(self) -> Sequence[Mapping[str, Any]]:
+        with self.engine.connect() as connection:
+            rows = connection.execute(text(
+                "SELECT i.id, i.azienda, i.sede, i.data_riferimento, i.creato_il, "
+                "m.nome AS modello, r.numero AS revisione, "
+                "EXISTS (SELECT 1 FROM migrazioni_fascicolo x "
+                "WHERE x.incarico_id = i.id AND x.stato = 'proposta') AS migrazione_pendente "
+                "FROM incarichi i JOIN revisioni_modello_fascicolo r "
+                "ON r.id = i.revisione_modello_id JOIN modelli_fascicolo m "
+                "ON m.id = r.modello_id ORDER BY i.creato_il DESC"
+            )).mappings()
+            return tuple(_engagement_summary(dict(row)) for row in rows)
+
+    def create_engagement(
+        self, engagement_id: UUID, values: Mapping[str, Any]
+    ) -> Mapping[str, Any] | None:
+        with self.engine.begin() as connection:
+            revision = connection.execute(text(
+                "SELECT schema_markdown FROM revisioni_modello_fascicolo WHERE id = :id"
+            ), {"id": values["template_revision_id"]}).scalar_one_or_none()
+            if revision is None:
+                return None
+            connection.execute(text(
+                "INSERT INTO incarichi (id, azienda, sede, data_riferimento, "
+                "revisione_modello_id, fascicolo_markdown) VALUES "
+                "(:id, :company, :site, :reference_date, :template_revision_id, :markdown)"
+            ), {"id": engagement_id, "markdown": revision, **values})
+            connection.execute(text(
+                "INSERT INTO revisioni_fascicolo (id, incarico_id, numero, "
+                "revisione_modello_id, fascicolo_markdown, motivo) VALUES "
+                "(:id, :engagement_id, 1, :revision_id, :markdown, 'creazione')"
+            ), {
+                "id": uuid4(), "engagement_id": engagement_id,
+                "revision_id": values["template_revision_id"], "markdown": revision,
+            })
+            return self._engagement(connection, engagement_id)
+
+    def engagement(self, engagement_id: UUID) -> Mapping[str, Any] | None:
+        with self.engine.connect() as connection:
+            return self._engagement(connection, engagement_id)
+
+    def update_dossier(
+        self, engagement_id: UUID, markdown: str
+    ) -> Mapping[str, Any] | None:
+        with self.engine.begin() as connection:
+            current = connection.execute(text(
+                "SELECT revisione_modello_id FROM incarichi WHERE id = :id FOR UPDATE"
+            ), {"id": engagement_id}).scalar_one_or_none()
+            if current is None:
+                return None
+            connection.execute(text(
+                "UPDATE incarichi SET fascicolo_markdown = :markdown, aggiornato_il = now() "
+                "WHERE id = :id"
+            ), {"id": engagement_id, "markdown": markdown})
+            proposals = connection.execute(text(
+                "SELECT x.id, r.schema_markdown FROM migrazioni_fascicolo x "
+                "JOIN revisioni_modello_fascicolo r ON r.id = x.revisione_destinazione_id "
+                "WHERE x.incarico_id = :id AND x.stato = 'proposta'"
+            ), {"id": engagement_id}).mappings().all()
+            for proposal in proposals:
+                proposed, diff = migration(markdown, proposal["schema_markdown"])
+                connection.execute(text(
+                    "UPDATE migrazioni_fascicolo SET fascicolo_origine = :current, "
+                    "fascicolo_proposto = :proposed, diff = :diff WHERE id = :id"
+                ), {
+                    "id": proposal["id"], "current": markdown,
+                    "proposed": proposed, "diff": diff,
+                })
+            self._append_dossier_revision(
+                connection, engagement_id, current, markdown, "modifica_manuale"
+            )
+            return self._engagement(connection, engagement_id)
+
+    def apply_migration(
+        self, engagement_id: UUID, migration_id: UUID
+    ) -> Mapping[str, Any] | None:
+        with self.engine.begin() as connection:
+            item = connection.execute(text(
+                "SELECT id, revisione_origine_id, revisione_destinazione_id, fascicolo_origine, "
+                "fascicolo_proposto FROM migrazioni_fascicolo "
+                "WHERE id = :migration_id AND incarico_id = :engagement_id "
+                "AND stato = 'proposta'"
+            ), {"migration_id": migration_id, "engagement_id": engagement_id}).mappings().one_or_none()
+            if item is None:
+                return None
+            updated = connection.execute(text(
+                "UPDATE incarichi SET revisione_modello_id = :target, "
+                "fascicolo_markdown = :markdown, aggiornato_il = now() "
+                "WHERE id = :id AND revisione_modello_id = :source "
+                "AND fascicolo_markdown = :current RETURNING id"
+            ), {
+                "id": engagement_id, "source": item["revisione_origine_id"],
+                "target": item["revisione_destinazione_id"],
+                "current": item["fascicolo_origine"],
+                "markdown": item["fascicolo_proposto"],
+            }).scalar_one_or_none()
+            if updated is None:
+                raise ApiError(409, "stale_migration", "La proposta non parte dalla revisione corrente.")
+            connection.execute(text(
+                "UPDATE migrazioni_fascicolo SET stato = 'applicata', applicata_il = now() "
+                "WHERE id = :id"
+            ), {"id": migration_id})
+            self._append_dossier_revision(
+                connection, engagement_id, item["revisione_destinazione_id"],
+                item["fascicolo_proposto"], "migrazione",
+            )
+            return self._engagement(connection, engagement_id)
+
+    @staticmethod
+    def _append_dossier_revision(
+        connection: Any, engagement_id: UUID, template_revision_id: UUID,
+        markdown: str, reason: str,
+    ) -> None:
+        connection.execute(text(
+            "INSERT INTO revisioni_fascicolo (id, incarico_id, numero, "
+            "revisione_modello_id, fascicolo_markdown, motivo) SELECT "
+            ":id, :engagement_id, COALESCE(max(numero), 0) + 1, :revision_id, "
+            ":markdown, :reason FROM revisioni_fascicolo WHERE incarico_id = :engagement_id"
+        ), {
+            "id": uuid4(), "engagement_id": engagement_id,
+            "revision_id": template_revision_id, "markdown": markdown, "reason": reason,
+        })
+
+    @staticmethod
+    def _engagement(connection: Any, engagement_id: UUID) -> Mapping[str, Any] | None:
+        row = connection.execute(text(
+            "SELECT i.id, i.azienda, i.sede, i.data_riferimento, i.fascicolo_markdown, "
+            "i.creato_il, i.aggiornato_il, m.id AS modello_id, m.nome AS modello, "
+            "r.id AS revisione_id, r.numero AS revisione, r.indicazioni "
+            "FROM incarichi i JOIN revisioni_modello_fascicolo r "
+            "ON r.id = i.revisione_modello_id JOIN modelli_fascicolo m ON m.id = r.modello_id "
+            "WHERE i.id = :id"
+        ), {"id": engagement_id}).mappings().one_or_none()
+        if row is None:
+            return None
+        history = connection.execute(text(
+            "SELECT id, numero, revisione_modello_id, fascicolo_markdown, motivo, creata_il "
+            "FROM revisioni_fascicolo WHERE incarico_id = :id ORDER BY numero DESC"
+        ), {"id": engagement_id}).mappings().all()
+        pending = connection.execute(text(
+            "SELECT x.id, x.revisione_origine_id, x.revisione_destinazione_id, "
+            "x.fascicolo_proposto, x.diff, x.creata_il, r.numero AS revisione_destinazione "
+            "FROM migrazioni_fascicolo x JOIN revisioni_modello_fascicolo r "
+            "ON r.id = x.revisione_destinazione_id WHERE x.incarico_id = :id "
+            "AND x.stato = 'proposta' ORDER BY r.numero DESC LIMIT 1"
+        ), {"id": engagement_id}).mappings().one_or_none()
+        return {
+            "id": str(row["id"]), "company": row["azienda"], "site": row["sede"],
+            "reference_date": row["data_riferimento"], "dossier_markdown": row["fascicolo_markdown"],
+            "created_at": row["creato_il"], "updated_at": row["aggiornato_il"],
+            "template": {"id": str(row["modello_id"]), "name": row["modello"]},
+            "template_revision": {
+                "id": str(row["revisione_id"]), "number": row["revisione"],
+                "instructions": row["indicazioni"],
+            },
+            "history": [{
+                "id": str(item["id"]), "number": item["numero"],
+                "template_revision_id": str(item["revisione_modello_id"]),
+                "dossier_markdown": item["fascicolo_markdown"],
+                "reason": item["motivo"], "created_at": item["creata_il"],
+            } for item in history],
+            "pending_migration": None if pending is None else {
+                "id": str(pending["id"]),
+                "source_revision_id": str(pending["revisione_origine_id"]),
+                "target_revision_id": str(pending["revisione_destinazione_id"]),
+                "target_revision": pending["revisione_destinazione"],
+                "proposed_markdown": pending["fascicolo_proposto"],
+                "diff": pending["diff"], "created_at": pending["creata_il"],
+            },
+        }
+
     def _case_state(self, connection: Any, conversation_id: UUID) -> dict[str, Any]:
         rows = connection.execute(text(
             "SELECT DISTINCT ON (nome) nome, valore, stato, "
@@ -348,6 +627,38 @@ class FeedbackInput(BaseModel):
         if self.rating is None and self.reason is None and self.details is None:
             raise ValueError("specificare almeno un campo di feedback")
         return self
+
+
+class TemplateInput(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    markdown: str = Field(min_length=1, max_length=100_000)
+    instructions: dict[str, str] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def instructions_match_sections(self) -> TemplateInput:
+        validate_instructions(self.markdown, self.instructions)
+        return self
+
+
+class TemplateRevisionInput(BaseModel):
+    markdown: str = Field(min_length=1, max_length=100_000)
+    instructions: dict[str, str] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def instructions_match_sections(self) -> TemplateRevisionInput:
+        validate_instructions(self.markdown, self.instructions)
+        return self
+
+
+class EngagementInput(BaseModel):
+    company: str = Field(min_length=1, max_length=300)
+    site: str = Field(min_length=1, max_length=300)
+    reference_date: date
+    template_revision_id: UUID
+
+
+class DossierInput(BaseModel):
+    markdown: str = Field(min_length=1, max_length=500_000)
 
 
 class CitationOutput(BaseModel):
@@ -419,7 +730,7 @@ class ErrorEnvelope(BaseModel):
 
 ERROR_RESPONSES: dict[int | str, dict[str, Any]] = {
     400: {"model": ErrorEnvelope}, 404: {"model": ErrorEnvelope},
-    422: {"model": ErrorEnvelope}, 500: {"model": ErrorEnvelope},
+    409: {"model": ErrorEnvelope}, 422: {"model": ErrorEnvelope}, 500: {"model": ErrorEnvelope},
     502: {"model": ErrorEnvelope}, 503: {"model": ErrorEnvelope},
 }
 
@@ -572,6 +883,65 @@ def create_app(
             raise ApiError(404, "message_not_found", "Messaggio assistente non trovato.")
         return result
 
+    @app.get("/v1/dossier-templates")
+    def list_dossier_templates() -> Sequence[Mapping[str, Any]]:
+        return selected_store.list_templates()
+
+    @app.post("/v1/dossier-templates", status_code=201, responses=ERROR_RESPONSES)
+    def create_dossier_template(payload: TemplateInput) -> Mapping[str, Any]:
+        return selected_store.create_template(uuid4(), uuid4(), payload.model_dump())
+
+    @app.post(
+        "/v1/dossier-templates/{template_id}/revisions", status_code=201,
+        responses=ERROR_RESPONSES,
+    )
+    def create_dossier_template_revision(
+        template_id: UUID, payload: TemplateRevisionInput
+    ) -> Mapping[str, Any]:
+        result = selected_store.revise_template(template_id, uuid4(), payload.model_dump())
+        if result is None:
+            raise ApiError(404, "template_not_found", "Modello non trovato.")
+        return result
+
+    @app.get("/v1/engagements")
+    def list_engagements() -> Sequence[Mapping[str, Any]]:
+        return selected_store.list_engagements()
+
+    @app.post("/v1/engagements", status_code=201, responses=ERROR_RESPONSES)
+    def create_engagement(payload: EngagementInput) -> Mapping[str, Any]:
+        result = selected_store.create_engagement(uuid4(), payload.model_dump())
+        if result is None:
+            raise ApiError(422, "template_revision_not_found", "Revisione del modello non trovata.")
+        return result
+
+    @app.get("/v1/engagements/{engagement_id}", responses=ERROR_RESPONSES)
+    def get_engagement(engagement_id: UUID) -> Mapping[str, Any]:
+        result = selected_store.engagement(engagement_id)
+        if result is None:
+            raise ApiError(404, "engagement_not_found", "Incarico non trovato.")
+        return result
+
+    @app.patch("/v1/engagements/{engagement_id}/dossier", responses=ERROR_RESPONSES)
+    def update_dossier(
+        engagement_id: UUID, payload: DossierInput
+    ) -> Mapping[str, Any]:
+        result = selected_store.update_dossier(engagement_id, payload.markdown)
+        if result is None:
+            raise ApiError(404, "engagement_not_found", "Incarico non trovato.")
+        return result
+
+    @app.post(
+        "/v1/engagements/{engagement_id}/migrations/{migration_id}/apply",
+        responses=ERROR_RESPONSES,
+    )
+    def apply_dossier_migration(
+        engagement_id: UUID, migration_id: UUID
+    ) -> Mapping[str, Any]:
+        result = selected_store.apply_migration(engagement_id, migration_id)
+        if result is None:
+            raise ApiError(404, "migration_not_found", "Proposta di migrazione non trovata.")
+        return result
+
     return app
 
 
@@ -579,6 +949,23 @@ def _message_dict(row: Mapping[str, Any]) -> dict[str, Any]:
     return {
         "id": str(row["id"]), "role": row["ruolo"], "content": row["contenuto"],
         "status": row["stato"], "created_at": row["creato_il"],
+    }
+
+
+def _template_revision(row: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        "id": str(row["id"]), "number": row["numero"],
+        "markdown": row["schema_markdown"], "instructions": row["indicazioni"],
+        "created_at": row["creata_il"],
+    }
+
+
+def _engagement_summary(row: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        "id": str(row["id"]), "company": row["azienda"], "site": row["sede"],
+        "reference_date": row["data_riferimento"], "created_at": row["creato_il"],
+        "template_name": row["modello"], "template_revision": row["revisione"],
+        "has_pending_migration": row["migrazione_pendente"],
     }
 
 

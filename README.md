@@ -97,6 +97,12 @@ npm run dev
 Apri `http://127.0.0.1:3000`. In ambienti diversi imposta `NUXT_API_BASE`
 all'indirizzo interno della API: il browser comunica soltanto con il proxy Nuxt.
 
+- `/`: assistente con cronologia, fonti e dati del caso.
+- `/incarichi`: elenco, creazione e fascicoli con cronologia delle versioni.
+- `/modelli`: sezioni, contenuto iniziale e indicazioni per l’agente. Ogni modifica
+  salvata crea una revisione; gli incarichi esistenti la adottano solo applicando
+  la proposta di migrazione dopo il confronto.
+
 ```sh
 npm run typecheck
 npm run test:e2e

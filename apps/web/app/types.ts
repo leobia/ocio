@@ -61,3 +61,63 @@ export interface Answer {
   missing_information: string[]
   conditions: string[]
 }
+
+export interface DossierTemplateRevision {
+  id: string
+  number: number
+  markdown: string
+  instructions: Record<string, string>
+  created_at: string
+}
+
+export interface DossierTemplate {
+  id: string
+  name: string
+  is_default: boolean
+  created_at: string
+  revisions: DossierTemplateRevision[]
+}
+
+export interface EngagementSummary {
+  id: string
+  company: string
+  site: string
+  reference_date: string
+  created_at: string
+  template_name: string
+  template_revision: number
+  has_pending_migration: boolean
+}
+
+export interface DossierHistory {
+  id: string
+  number: number
+  template_revision_id: string
+  dossier_markdown: string
+  reason: 'creazione' | 'modifica_manuale' | 'migrazione'
+  created_at: string
+}
+
+export interface DossierMigration {
+  id: string
+  source_revision_id: string
+  target_revision_id: string
+  target_revision: number
+  proposed_markdown: string
+  diff: string
+  created_at: string
+}
+
+export interface Engagement {
+  id: string
+  company: string
+  site: string
+  reference_date: string
+  dossier_markdown: string
+  created_at: string
+  updated_at: string
+  template: { id: string, name: string }
+  template_revision: { id: string, number: number, instructions: Record<string, string> }
+  history: DossierHistory[]
+  pending_migration: DossierMigration | null
+}
