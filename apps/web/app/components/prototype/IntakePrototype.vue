@@ -1,127 +1,101 @@
 <script setup lang="ts">
-// THROWAWAY #25: three intake layouts on the existing dossier route (?variant=A|B|C).
-const route = useRoute()
-const router = useRouter()
-const variants = ['A', 'B', 'C']
-const variant = computed(() => variants.includes(String(route.query.variant)) ? String(route.query.variant) : 'A')
-const names: Record<string, string> = { A: 'Percorso guidato', B: 'Dagli appunti ai dati', C: 'Prima il sopralluogo' }
-type Status = 'Confermato' | 'Proposto' | 'Sconosciuto' | 'Da verificare'
-interface Field { id: string, group: string, label: string, value: string, status: Status, source: string }
-const groups = ['Azienda e sedi', 'Organizzazione della sicurezza', 'Lavoratori e mansioni', 'Attività', 'Ambienti', 'Attrezzature', 'Emergenze', 'Formazione', 'Sorveglianza sanitaria', 'Appalti']
-const fields = ref<Field[]>(groups.map((group, index) => ({
-  id: String(index), group,
-  label: ['Sedi operative', 'Referente della sicurezza', 'Numero di lavoratori', 'Attività svolte', 'Ambienti da visitare', 'Attrezzature utilizzate', 'Addetti alle emergenze', 'Attestati disponibili', 'Informazioni da raccogliere', 'Sono presenti imprese esterne?'][index]!,
-  value: index === 0 ? 'Sede di esempio · Padova' : '', status: index === 0 ? 'Confermato' : 'Sconosciuto',
-  source: index === 0 ? 'Inserimento manuale · esempio' : 'Non ancora raccolto',
-})))
-fields.value.push({ id: 'contractors', group: 'Appalti', label: 'Quali attività svolgono le imprese esterne?', value: '', status: 'Sconosciuto', source: 'Non ancora raccolto' })
-const activeGroup = ref('Appalti')
-const selected = ref<string[]>([])
-const exampleNotes = 'Sono circa 18 lavoratori. Si eseguono assemblaggi meccanici. Le pulizie sono affidate a una ditta esterna.'
-const notes = ref(exampleNotes)
+// THROWAWAY #25: revision of selected layout A. Document sections, editable prose and source material.
+// Previous A/B/C variants are archived on prototype/issue-25-intake-v1.
+interface Section { title: string, text: string, sources: string[] }
+const sections = ref<Section[]>([
+  { title: 'Azienda e sede', text: '', sources: [] },
+  { title: 'Attività e organizzazione del lavoro', text: `L’azienda svolge attività di assemblaggio di componenti meccanici. Il lavoro si articola nella ricezione dei materiali, nella preparazione dei componenti e nell’assemblaggio al banco. I prodotti assemblati vengono successivamente imballati e trasferiti nell’area destinata alla spedizione.
+
+Secondo quanto riferito durante il sopralluogo, in officina lavorano circa diciotto persone. Non è stato acquisito un elenco aggiornato del personale; la distribuzione dei lavoratori fra le diverse mansioni resta quindi da precisare.
+
+Le attività si svolgono in un unico turno diurno. Nella visita sono state osservate le postazioni di assemblaggio e l’area di ricezione dei materiali. La descrizione delle operazioni meno frequenti dovrà essere integrata con le informazioni del referente aziendale.
+
+Le pulizie sono affidate a un’impresa esterna. Gli appunti non riportano frequenza, orari di accesso o modalità di coordinamento.`, sources: ['notes'] },
+  { title: 'Ambienti di lavoro', text: `Gli spazi visitati comprendono l’officina, l’area di deposito dei materiali e gli uffici. Nell’officina le postazioni di assemblaggio sono disposte lungo due file di banchi; il deposito si trova in prossimità dell’accesso utilizzato per le consegne.
+
+Durante la visita erano presenti alcuni imballaggi nell’area di passaggio fra il deposito e i banchi. Gli appunti descrivono la situazione osservata in quel momento e non consentono di stabilire se si tratti di una condizione abituale.
+
+Non sono state annotate le dimensioni dei locali né è stata acquisita una planimetria. Questi elementi non sono pertanto riportati nella presente descrizione.`, sources: ['notes'] },
+  { title: 'Macchine e attrezzature', text: `Le operazioni di assemblaggio osservate vengono svolte ai banchi con utensili manuali e avvitatori. Il materiale raccolto non contiene un inventario completo delle attrezzature.
+
+Per ciascuna attrezzatura, la descrizione potrà essere integrata con identificazione, impiego, modalità operative e documentazione disponibile. Non sono stati acquisiti manuali o registri di manutenzione.`, sources: ['notes'] },
+  { title: 'Valutazione dei rischi', text: '', sources: [] },
+  { title: 'Misure e procedure', text: '', sources: [] },
+  { title: 'Emergenze', text: '', sources: [] },
+  { title: 'Formazione', text: '', sources: [] },
+  { title: 'Sorveglianza sanitaria', text: '', sources: [] },
+  { title: 'Appalti', text: '', sources: [] },
+])
+const activeIndex = ref(1)
+const current = computed(() => sections.value[activeIndex.value]!)
+const company = ref('Officina esempio')
+const site = ref('Padova · sede operativa')
+const materialOpen = ref(false)
+const notes = ref(`Assemblaggio componenti meccanici. Arrivo materiali, preparazione, montaggio ai banchi, imballaggio e spedizione. Circa 18 persone in officina, chiedere elenco aggiornato e mansioni. Un turno diurno.
+
+Visitati officina, deposito e uffici. Due file di banchi. Deposito vicino all’ingresso consegne. Imballaggi nel passaggio fra deposito e banchi: non so se abituale. Non ho dimensioni né planimetria.
+
+Utensili manuali e avvitatori ai banchi. Non ho elenco completo, manuali e registri manutenzione. Pulizie ditta esterna, orari da chiarire.`)
 const notice = ref('')
-const showCollection = ref(false)
-const pending = computed(() => fields.value.filter(f => f.status === 'Proposto' || f.status === 'Da verificare'))
-const applicable = computed(() => fields.value.filter(f => f.id !== 'contractors' || fields.value.find(x => x.id === '9')?.value === 'Sì'))
-const visibleFields = computed(() => applicable.value.filter(f => f.group === activeGroup.value))
-const confirmed = computed(() => applicable.value.filter(f => f.status === 'Confermato').length)
-function extract() {
-  if (notes.value !== exampleNotes) { notice.value = 'La demo simula soltanto gli appunti di esempio. Ripristinali per provare la revisione.'; return }
-  for (const [id, value, source] of [['2', '18', 'Sono circa 18 lavoratori.'], ['3', 'Assemblaggi meccanici', 'Si eseguono assemblaggi meccanici.'], ['9', 'Sì', 'Le pulizie sono affidate a una ditta esterna.'], ['contractors', 'Pulizie', 'Le pulizie sono affidate a una ditta esterna.']]) {
-    const field = fields.value.find(f => f.id === id)!
-    if (field.status === 'Confermato') continue
-    Object.assign(field, { value, status: 'Proposto', source })
-  }
-  notice.value = 'Proposte simulate pronte. Nessun dato è stato confermato automaticamente.'
+const saved = ref(false)
+interface Attachment { id: string, name: string, type: string, url: string }
+const attachments = ref<Attachment[]>([])
+const viewed = ref<Attachment | null>(null)
+function selectSection(index: number) { activeIndex.value = index; notice.value = '' }
+function updateText(event: Event) { current.value.text = (event.target as HTMLElement).innerText; saved.value = false }
+function addFiles(event: Event) {
+  const input = event.target as HTMLInputElement
+  for (const file of Array.from(input.files || [])) attachments.value.push({ id: `${Date.now()}-${attachments.value.length}`, name: file.name, type: file.type, url: URL.createObjectURL(file) })
+  input.value = ''
+  notice.value = 'File aperti solo in questo browser. La demo non li carica sul server e non li analizza.'
 }
-function approve() {
-  fields.value.filter(f => selected.value.includes(f.id) && (f.status === 'Proposto' || f.status === 'Da verificare')).forEach(f => { f.status = 'Confermato' })
-  selected.value = []
-  notice.value = 'Selezione confermata nella demo.'
-}
-function edit(field: Field) { field.status = 'Da verificare' }
-interface Item { id: string, text: string, origin: string, state: string }
-const checklist = ref<Item[]>([])
-function generate() {
-  for (const field of applicable.value.filter(f => f.status !== 'Confermato')) {
-    if (!checklist.value.some(item => item.id === field.id)) checklist.value.push({ id: field.id, text: `Verificare: ${field.label.toLowerCase()}`, origin: `${field.group} · dato ${field.status.toLowerCase()}`, state: 'Da fare' })
-  }
-  notice.value = 'Checklist aggiornata dalle lacune dimostrative. Le voci già modificate sono conservate.'
-}
-function addItem() { checklist.value.push({ id: `manual-${Date.now()}`, text: 'Nuova verifica', origin: 'Aggiunta dall’operatore', state: 'Da fare' }) }
-function cycle(direction: number) { router.replace({ query: { ...route.query, variant: variants[(variants.indexOf(variant.value) + direction + 3) % 3] } }) }
-function keyboard(event: KeyboardEvent) {
-  if ((event.target as HTMLElement).closest('input, textarea, select, button, [contenteditable]')) return
-  if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') { event.preventDefault(); cycle(event.key === 'ArrowRight' ? 1 : -1) }
-}
-onMounted(() => { generate(); notice.value = ''; window.addEventListener('keydown', keyboard) })
-onUnmounted(() => window.removeEventListener('keydown', keyboard))
+function save() { saved.value = true; notice.value = 'Versione simulata. Ricaricando la pagina le modifiche si perdono.' }
+onUnmounted(() => attachments.value.forEach(file => URL.revokeObjectURL(file.url)))
 </script>
 
 <template>
-  <div class="intake-prototype" :class="`variant-${variant}`">
-    <div class="demo-note"><strong>PROTOTIPO #25</strong> · Azienda fittizia · modifiche solo in memoria · estrazione simulata</div>
-    <header class="intro">
-      <div><p class="eyebrow">OFFICINA ESEMPIO / SEDE DI PADOVA</p><h2>{{ names[variant] }}</h2><p>Dal primo colloquio alla visita in azienda.</p></div>
-      <div class="progress"><strong>{{ confirmed }} / {{ applicable.length }}</strong><span>dati confermati</span></div>
+  <div class="document-prototype">
+    <div class="prototype-note">Prototipo · contenuto fittizio · modifiche solo in memoria</div>
+    <header class="document-header">
+      <div><p class="company">{{ company }}</p><h2>Fascicolo di sicurezza</h2><p class="subtitle">{{ site }}</p></div>
+      <div class="actions"><button class="secondary" :aria-expanded="materialOpen" @click="materialOpen = !materialOpen">{{ materialOpen ? 'Chiudi materiale' : 'Materiale del sopralluogo' }}</button><button class="primary" @click="save">Salva versione demo</button></div>
     </header>
-    <p v-if="notice" role="status" class="notice">{{ notice }}</p>
-    <div class="workspace">
-      <nav v-if="variant === 'A'" class="steps" aria-label="Ambiti della raccolta">
-        <p class="eyebrow">01 / RACCOLTA GUIDATA</p>
-        <button v-for="(group, i) in groups" :key="group" :class="{ active: activeGroup === group }" @click="activeGroup = group"><span>{{ String(i + 1).padStart(2, '0') }}</span>{{ group }}</button>
+    <p v-if="notice" class="notice" role="status">{{ notice }}</p>
+    <div class="document-layout" :class="{ 'with-material': materialOpen }">
+      <nav class="section-index" aria-label="Sezioni del fascicolo">
+        <h3>Sezioni</h3>
+        <button v-for="(section, index) in sections" :key="section.title" :aria-current="activeIndex === index ? 'page' : undefined" @click="selectSection(index)"><span class="section-number">{{ String(index + 1).padStart(2, '0') }}</span><span>{{ section.title }}</span></button>
+        <p class="index-note">Indice dimostrativo.<br>Nel prodotto seguirà il modello scelto per l’incarico.</p>
       </nav>
-      <section v-if="variant !== 'C' || showCollection" class="panel collection">
-        <div class="panel-title"><div><p class="eyebrow">DATI DEL CASO</p><h3>{{ activeGroup }}</h3></div><span class="tag">Manuale</span></div>
-        <label v-if="variant !== 'A'" class="field">Ambito<select v-model="activeGroup"><option v-for="group in groups" :key="group">{{ group }}</option></select></label>
-        <p class="muted">Compila ciò che sai. Puoi lasciare le informazioni sconosciute.</p>
-        <div v-for="field in visibleFields" :key="field.id" class="field-box">
-          <label class="field">{{ field.label }}
-            <select v-if="field.id === '9'" v-model="field.value" @change="edit(field)"><option value="">Non lo so</option><option>Sì</option><option>No</option></select>
-            <input v-else v-model="field.value" placeholder="Informazione non ancora raccolta" @input="edit(field)">
-          </label>
-          <div class="row"><span class="tag" :data-status="field.status">{{ field.status }}</span><button class="text-button" :disabled="!field.value || field.status === 'Confermato'" @click="field.status = 'Confermato'; field.source = field.source === 'Non ancora raccolto' ? 'Compilazione manuale · demo' : field.source">Conferma dato</button></div>
-          <small>{{ field.source }}</small>
+      <section class="document-area" :aria-label="current.title">
+        <div class="editor-meta"><span>Sezione {{ activeIndex + 1 }} di {{ sections.length }}</span><span>{{ saved ? 'Salvataggio simulato' : 'Bozza' }}</span></div>
+        <div class="paper">
+          <h3>{{ current.title }}</h3>
+          <template v-if="activeIndex === 0">
+            <p class="intro">Dati essenziali dell’incarico.</p>
+            <label class="field">Azienda<input v-model="company" @input="saved = false"></label>
+            <label class="field">Sede<input v-model="site" @input="saved = false"></label>
+          </template>
+          <div v-else :key="activeIndex" class="prose-editor" contenteditable="plaintext-only" role="textbox" aria-multiline="true" :aria-label="`Testo: ${current.title}`" :data-placeholder="'Scrivi qui il contenuto della sezione…'" @input="saved = false" @blur="updateText">{{ current.text }}</div>
+          <footer class="paper-footer"><button v-if="current.sources.length" class="source-link" @click="materialOpen = true; viewed = null">Materiale utilizzato: appunti del sopralluogo ↗</button><p v-else>Puoi scrivere direttamente nel fascicolo.</p></footer>
         </div>
-        <p v-if="activeGroup === 'Appalti'" class="hint">Il dettaglio sulle attività compare solo scegliendo “Sì”.</p>
-        <button v-if="variant === 'A'" class="primary" @click="activeGroup = groups[(groups.indexOf(activeGroup) + 1) % groups.length]!">Prossimo ambito →</button>
+        <p class="editor-note">{{ activeIndex === 0 ? 'I dati anagrafici restano campi brevi.' : 'Scrivi e correggi direttamente il testo. Nessuna conferma per singolo dato.' }}</p>
       </section>
-      <section class="panel notes">
-        <div class="panel-title"><div><p class="eyebrow">{{ variant === 'B' ? '01 / PUNTO DI PARTENZA' : 'APPUNTI DEL COLLOQUIO' }}</p><h3>Le parole dell’azienda</h3></div></div>
-        <label class="field">Appunti<textarea v-model="notes" rows="6" /></label>
-        <p class="muted">L’estrazione propone valori da rivedere insieme al passaggio originale.</p>
-        <div class="row"><button class="primary" @click="extract">Simula estrazione</button><button class="text-button" @click="notes = exampleNotes">Ripristina esempio</button></div>
-      </section>
-      <section class="panel review">
-        <div class="panel-title"><div><p class="eyebrow">{{ variant === 'B' ? '02 / REVISIONE' : 'DA RIVEDERE' }}</p><h3>Proposte e verifiche</h3></div><span class="tag">{{ pending.length }}</span></div>
-        <div v-if="!pending.length" class="empty">Nessuna proposta in attesa.<br>Prova l’estrazione dagli appunti di esempio.</div>
-        <article v-for="field in pending" :key="field.id" class="proposal">
-          <label class="row"><input v-model="selected" type="checkbox" :value="field.id"><strong>{{ field.label }}</strong></label>
-          <input v-model="field.value" :aria-label="`Correggi: ${field.label}`" @input="edit(field)">
-          <blockquote>«{{ field.source }}»</blockquote>
-          <div class="row"><span class="tag" :data-status="field.status">{{ field.status }}</span><button class="text-button" @click="field.status = 'Da verificare'; selected = selected.filter(id => id !== field.id)">Da verificare</button></div>
-        </article>
-        <button class="primary" :disabled="!selected.length" @click="approve">Conferma selezionati ({{ selected.length }})</button>
-      </section>
-      <section class="panel checklist">
-        <div class="panel-title"><div><p class="eyebrow">{{ variant === 'C' ? 'IL PROSSIMO PASSO' : 'PRIMO SOPRALLUOGO' }}</p><h3>Da portare in visita</h3></div><span class="tag">{{ checklist.filter(i => i.state === 'Completata').length }}/{{ checklist.length }}</span></div>
-        <p class="muted">Una traccia modificabile dalle lacune del caso. Le sezioni sono dimostrative, da validare con l’RSPP.</p>
-        <div class="row"><button class="primary" @click="generate">Aggiorna dalle lacune</button><button class="text-button" @click="addItem">+ Aggiungi voce</button><button v-if="variant === 'C'" class="text-button" @click="showCollection = !showCollection">{{ showCollection ? 'Chiudi dati' : 'Completa i dati' }}</button></div>
-        <div class="checklist-items"><article v-for="item in checklist" :key="item.id" class="check-item">
-          <input v-model="item.text" aria-label="Voce checklist">
-          <select v-model="item.state" aria-label="Stato voce"><option>Da fare</option><option>Completata</option><option>Da verificare</option></select>
-          <small>Origine: {{ item.origin }}</small>
-        </article></div>
-      </section>
+      <aside v-if="materialOpen" class="material-panel" aria-label="Materiale del sopralluogo">
+        <div class="material-title"><h3>Materiale del sopralluogo</h3><button class="close-button" aria-label="Chiudi materiale" @click="materialOpen = false">×</button></div>
+        <label class="field">Appunti<textarea v-model="notes" rows="13" /></label>
+        <p class="material-help">La bozza di esempio è già compilata. In questa demo modificare gli appunti non genera nuovo testo.</p>
+        <div class="files-heading"><h4>Foto e documenti</h4><label class="add-files">Aggiungi<input type="file" multiple aria-label="Aggiungi foto e documenti" accept="image/*,.pdf,.doc,.docx,.txt" @change="addFiles"></label></div>
+        <p v-if="!attachments.length" class="empty-material">Nessun file aggiunto.</p>
+        <ul v-else class="attachment-list"><li v-for="file in attachments" :key="file.id"><button @click="viewed = file">{{ file.name }}</button></li></ul>
+        <div v-if="viewed" class="file-preview"><h4>{{ viewed.name }}</h4><img v-if="viewed.type.startsWith('image/')" :src="viewed.url" :alt="viewed.name"><iframe v-else-if="viewed.type === 'application/pdf'" :src="viewed.url" :title="viewed.name" /><p v-else>Anteprima non disponibile per questo formato.</p></div>
+        <p class="material-help">File solo in memoria nel browser, senza analisi automatica.</p>
+      </aside>
     </div>
-    <details class="state"><summary>Stato della demo · {{ names[variant] }} · {{ confirmed }} confermati · {{ pending.length }} da rivedere</summary><pre>{{ JSON.stringify({ fields, checklist }, null, 2) }}</pre></details>
-    <nav class="switcher" aria-label="Varianti prototipo"><button aria-label="Variante precedente" @click="cycle(-1)">←</button><div><small>PROTOTIPO · {{ variant }} / C</small><strong>{{ names[variant] }}</strong></div><button aria-label="Variante successiva" @click="cycle(1)">→</button></nav>
   </div>
 </template>
 
 <style scoped>
-.intake-prototype{padding:24px 28px 110px;--line:#dbe3dd;--ink:#203e32;color:var(--ink);background:#f6f8f5;min-height:calc(100vh - 64px)}
-.demo-note{font-size:12px;color:#65736a;border-bottom:1px solid var(--line);padding-bottom:12px}.demo-note strong{color:#376849}.intro{display:flex;justify-content:space-between;gap:24px;align-items:center;padding:28px 0}.eyebrow{font-size:10px;letter-spacing:.12em;font-weight:700;color:#64796a;margin-bottom:9px}h2{font-size:30px;line-height:1.2;font-weight:650;margin-bottom:8px}h3{font-size:20px;font-weight:600}.intro p:not(.eyebrow),.muted{color:#66756c;font-size:14px}.progress{display:flex;flex-direction:column;min-width:110px}.progress strong{font-size:26px}.progress span{font-size:12px}.workspace{display:grid;gap:20px;align-items:start}.panel{padding:24px;background:white;border:1px solid var(--line);border-radius:14px;min-width:0}.panel-title{display:flex;justify-content:space-between;align-items:start;gap:12px;margin-bottom:20px}.panel-title .eyebrow{margin-bottom:5px}.variant-A .workspace{grid-template-columns:210px minmax(0,1fr) minmax(260px,.8fr)}.variant-A .steps{grid-column:1;grid-row:1 / 4}.variant-A .collection{grid-column:2;grid-row:1 / 3}.variant-A .notes{grid-column:3;grid-row:1}.variant-A .review{grid-column:3;grid-row:2}.variant-A .checklist{grid-column:2 / 4}.steps button{display:flex;text-align:left;gap:12px;width:100%;padding:12px 10px;border-radius:8px;font-size:13px}.steps button span{font-size:11px;opacity:.5}.steps button.active{background:#dfede2;color:#245e3c;font-weight:650}.variant-B .workspace{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.variant-B .notes{grid-column:1;grid-row:1}.variant-B .review{grid-column:2;grid-row:1 / 3}.variant-B .collection{grid-column:1;grid-row:2}.variant-B .checklist{grid-column:1 / 3}.variant-C .workspace{grid-template-columns:minmax(0,1.6fr) minmax(280px,1fr)}.variant-C .checklist{grid-column:1;grid-row:1 / 4}.variant-C .notes,.variant-C .review,.variant-C .collection{grid-column:2}.variant-C .collection{grid-row:1}.field{display:grid;gap:8px;font-size:14px;font-weight:550;margin-bottom:14px}input:not([type=checkbox]),textarea,select{width:100%;border:1px solid #cbd8cf;border-radius:7px;padding:10px 12px;background:white;color:#203e32;font:inherit;font-size:14px;min-width:0}textarea{resize:vertical}input[type=checkbox]{accent-color:#2e6750;width:17px;height:17px;flex-shrink:0}button{cursor:pointer}button:disabled{opacity:.4;cursor:default}.field-box{padding:20px 0;border-bottom:1px solid var(--line);margin-bottom:18px}.field-box small,.check-item small{display:block;margin-top:8px;color:#6d7a71;font-size:11px}.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.tag{display:inline-block;padding:4px 8px;border-radius:5px;font-size:11px;background:#eef1ed;white-space:nowrap}.tag[data-status=Confermato]{background:#dff1e5;color:#25633b}.tag[data-status=Proposto]{background:#e7edff;color:#43578a}.tag[data-status='Da verificare']{background:#fff0d5;color:#886024}.primary{padding:10px 14px;border-radius:7px;background:#2e6750;color:white;font-size:13px;font-weight:600}.text-button{font-size:12px;color:#2e6750;text-decoration:underline;text-underline-offset:3px;padding:5px 0}.hint{font-size:12px;color:#6d7a71;margin:16px 0}.muted{margin-bottom:18px}.proposal{border-top:1px solid var(--line);padding:16px 0}.proposal>.row:first-child{font-size:13px;margin-bottom:10px}blockquote{font-size:12px;border-left:2px solid #c4d5c8;padding-left:10px;color:#66756c;margin:12px 0}.empty{padding:25px 0 35px;font-size:14px;color:#79857d;line-height:1.7}.checklist-items{margin-top:20px;display:grid;gap:10px}.check-item{display:grid;grid-template-columns:minmax(0,1fr) 140px;gap:5px 10px;border-top:1px solid var(--line);padding-top:12px}.check-item small{grid-column:1 / -1}.notice{background:#e4efe6;padding:12px;border-radius:7px;margin-bottom:20px;font-size:13px}.state{margin-top:24px;font-size:12px;color:#64796a}.state pre{overflow:auto;max-height:260px;margin-top:12px}.switcher{position:fixed;z-index:50;bottom:20px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:20px;background:#172e24;color:white;border:1px solid #718579;padding:10px 16px;border-radius:50px;box-shadow:0 8px 30px #10231930;max-width:calc(100vw - 24px);white-space:nowrap}.switcher div{display:flex;flex-direction:column;text-align:center}.switcher small{font-size:9px;letter-spacing:.1em;color:#acc4b4}.switcher strong{font-size:12px}.switcher button{padding:8px;font-size:20px}
-@media(max-width:1100px){.variant-A .workspace{grid-template-columns:170px minmax(0,1fr)}.variant-A .collection,.variant-A .notes,.variant-A .review,.variant-A .checklist{grid-column:2;grid-row:auto}.variant-A .steps{grid-row:1 / 5}}
-@media(max-width:700px){.intake-prototype{padding:18px 16px 110px}.intro{gap:12px}h2{font-size:25px}.progress{min-width:70px}.progress strong{font-size:22px}.panel{padding:18px}.workspace{display:flex!important;flex-direction:column}.workspace>*{width:100%}.steps{display:flex;overflow:auto;gap:5px}.steps>.eyebrow{display:none}.steps button{min-width:150px}.variant-B .notes,.variant-C .checklist{order:-1}.check-item{grid-template-columns:minmax(0,1fr)}.check-item small{grid-column:1}.check-item select{width:auto}.demo-note{line-height:1.6}}
+.document-prototype{background:#f5f6f3;min-height:calc(100vh - 64px);padding:20px 28px 50px;color:#26392f}.prototype-note{font-size:11px;color:#758076;padding-bottom:14px;border-bottom:1px solid #dfe4dd}.document-header{display:flex;justify-content:space-between;align-items:center;gap:20px;padding:28px 0}.company{font-size:13px;color:#647369;margin-bottom:6px}h2{font-size:26px;font-weight:650;letter-spacing:-.02em}.subtitle{font-size:13px;color:#647369;margin-top:5px}.actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}button{cursor:pointer}.primary,.secondary{font-size:12px;font-weight:550;padding:10px 13px;border-radius:6px}.primary{background:#2e6750;color:white;border:1px solid #2e6750}.secondary{background:white;border:1px solid #d3dbd2;color:#35513e}.document-layout{display:grid;grid-template-columns:210px minmax(0,1fr);gap:28px;align-items:start}.document-layout.with-material{grid-template-columns:190px minmax(0,1fr) 310px;gap:20px}.section-index{padding-top:8px}.section-index h3{font-size:12px;font-weight:650;margin:0 10px 18px}.section-index>button{display:flex;gap:12px;text-align:left;width:100%;padding:12px 10px;border-radius:6px;font-size:13px;line-height:1.5;margin:2px 0}.section-index>button[aria-current=page]{background:#e0ebe1;color:#255538;font-weight:600}.section-number{font-size:10px;color:#7d897e;padding-top:3px}.index-note{font-size:11px;line-height:1.6;color:#7d897e;margin:30px 10px}.document-area{min-width:0}.editor-meta{display:flex;justify-content:space-between;font-size:11px;color:#748074;margin:8px 0 12px}.paper{max-width:860px;margin:auto;background:#fff;border:1px solid #dfe4dd;box-shadow:0 3px 12px #23362404;min-height:690px;padding:46px 48px;display:flex;flex-direction:column}.paper h3{font-family:Georgia,serif;font-size:27px;line-height:1.3;margin-bottom:28px;color:#27382b}.prose-editor{font-family:Georgia,serif;font-size:17px;line-height:1.95;white-space:pre-wrap;overflow-wrap:anywhere;min-height:450px;outline:none}.prose-editor:focus{outline:1px solid #b7c9b8;outline-offset:10px}.prose-editor:empty:before{content:attr(data-placeholder);color:#92998f}.paper-footer{border-top:1px solid #ecefe9;padding-top:18px;margin-top:30px;color:#758073;font-size:11px}.source-link{text-align:left;color:#506d54;text-decoration:underline;text-underline-offset:3px}.editor-note{font-size:11px;color:#758073;padding:14px 0}.field{display:grid;gap:8px;font-size:12px;font-weight:550;margin-bottom:20px}.field input,.field textarea{border:1px solid #d2dcd1;border-radius:5px;background:white;color:#293d2f;padding:10px 12px;font-size:13px;font-weight:400;line-height:1.65;width:100%;min-width:0}.field textarea{resize:vertical}.intro{font-size:14px;color:#758073;margin-bottom:30px}.material-panel{background:#fff;padding:20px;border:1px solid #dfe4dd;border-radius:7px;min-width:0}.material-title{display:flex;justify-content:space-between;align-items:start;gap:10px;margin-bottom:24px}.material-title h3{font-size:14px;font-weight:650}.close-button{font-size:23px;line-height:1}.material-help,.empty-material{font-size:11px;line-height:1.7;color:#7d897e;margin:12px 0}.files-heading{display:flex;align-items:center;justify-content:space-between;border-top:1px solid #dfe4dd;padding-top:20px;margin-top:25px}.files-heading h4{font-size:12px;font-weight:650}.add-files{font-size:12px;color:#2e6750;text-decoration:underline;position:relative;cursor:pointer}.add-files input{position:absolute;inset:0;opacity:0;width:100%;cursor:pointer}.attachment-list{list-style:none;margin:12px 0}.attachment-list button{text-align:left;font-size:12px;overflow-wrap:anywhere;padding:8px 0;color:#2e6750}.file-preview h4{font-size:12px;overflow-wrap:anywhere;margin-bottom:12px}.file-preview img{width:100%;height:auto}.file-preview iframe{width:100%;height:350px;border:0}.file-preview p{font-size:12px}.notice{font-size:12px;background:#e4eee4;padding:12px;margin-bottom:20px;border-radius:5px}
+@media(min-width:1350px){.document-layout:not(.with-material) .paper{padding:50px 64px}}@media(max-width:1200px){.document-layout.with-material{grid-template-columns:175px minmax(0,1fr)}.material-panel{grid-column:2}.paper{padding:32px}}@media(max-width:700px){.document-prototype{padding:15px 16px 35px}.document-header{align-items:start;flex-direction:column;gap:18px}.actions{justify-content:flex-start}.document-layout,.document-layout.with-material{display:flex;flex-direction:column;gap:18px}.section-index{width:100%;display:flex;overflow:auto;gap:6px;padding:0 0 8px}.section-index h3,.index-note{display:none}.section-index>button{min-width:165px;margin:0}.document-area,.material-panel{width:100%}.paper{padding:25px 22px;min-height:600px}.paper h3{font-size:25px}.prose-editor{font-size:16px;line-height:1.9}.material-panel{order:-1}.editor-note{line-height:1.7}}
 </style>
