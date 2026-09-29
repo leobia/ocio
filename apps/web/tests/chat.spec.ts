@@ -173,11 +173,13 @@ test('crea un incarico e applica una migrazione visibile senza perdere il testo'
   await page.getByRole('button', { name: 'Crea incarico' }).click()
   await expect(page.getByRole('heading', { name: 'Officina esempio' })).toBeVisible()
 
+  await page.getByRole('button', { name: 'Modifica Markdown', exact: true }).click()
   const dossier = page.getByLabel('Fascicolo Markdown')
   await dossier.fill(`${schema}\nTesto manuale approvato.`)
   await page.getByRole('button', { name: 'Salva fascicolo' }).click()
   await expect(page.getByText('Versione salvata nella cronologia.')).toBeVisible()
 
+  await page.getByRole('button', { name: 'Dettagli incarico', exact: true }).click()
   await page.getByRole('link', { name: 'Modelli fascicolo', exact: true }).click()
   await page.getByRole('button', { name: 'Aggiungi sezione', exact: true }).click()
   const added = page.getByRole('region', { name: 'Sezione 3', exact: true })
@@ -190,7 +192,9 @@ test('crea un incarico e applica una migrazione visibile senza perdere il testo'
   await expect(page.getByRole('heading', { name: 'Passa alla revisione 2' })).toBeVisible()
   await page.getByRole('button', { name: 'Applica migrazione' }).click()
   await expect(page.getByText('Fascicolo sicurezza aziendale · revisione 2')).toBeVisible()
+  await page.getByRole('button', { name: 'Modifica Markdown', exact: true }).click()
   await expect(dossier).toHaveValue(/Testo manuale approvato[\s\S]*## Formazione/)
   await page.reload()
+  await page.getByRole('button', { name: 'Modifica Markdown', exact: true }).click()
   await expect(dossier).toHaveValue(/Testo manuale approvato[\s\S]*## Formazione/)
 })

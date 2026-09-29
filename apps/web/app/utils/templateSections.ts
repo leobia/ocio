@@ -1,3 +1,5 @@
+import { dossierSections } from './dossierSections'
+
 export interface TemplateSection {
   id: number
   title: string
@@ -7,14 +9,14 @@ export interface TemplateSection {
 
 // Match the API's level-two Markdown sections; preserve the preamble and section content.
 export function parseTemplate(markdown: string, instructions: Record<string, string>) {
-  const headings = [...markdown.matchAll(/^## (.+)$/gm)]
+  const headings = dossierSections(markdown).filter(section => section.bodyStart > 0)
   return {
-    preamble: markdown.slice(0, headings[0]?.index ?? markdown.length).trimEnd(),
+    preamble: markdown.slice(0, headings[0]?.start ?? markdown.length).trimEnd(),
     sections: headings.map((heading, index): TemplateSection => ({
       id: index + 1,
-      title: heading[1]!.trim(),
-      body: markdown.slice(heading.index! + heading[0].length, headings[index + 1]?.index ?? markdown.length).replace(/^\n+|\n+$/g, ''),
-      instruction: instructions[heading[1]!.trim()] || '',
+      title: heading.title,
+      body: markdown.slice(heading.bodyStart, heading.end).replace(/^\n+|\n+$/g, ''),
+      instruction: instructions[heading.title] || '',
     })),
   }
 }

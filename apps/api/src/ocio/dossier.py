@@ -8,8 +8,32 @@ import re
 SECTION = re.compile(r"(?m)^## (.+)$")
 
 
+def _section_matches(markdown: str) -> list[re.Match[str]]:
+    # Headings inside fenced examples are content, not dossier sections.
+    matches = []
+    fence = ""
+    offset = 0
+    for line in markdown.splitlines(keepends=True):
+        delimiter = re.match(r"^ {0,3}(`{3,}|~{3,})", line)
+        if delimiter:
+            marker = delimiter.group(1)
+            if not fence:
+                fence = marker
+            elif (
+                marker[0] == fence[0] and len(marker) >= len(fence)
+                and not line[delimiter.end():].strip()
+            ):
+                fence = ""
+        elif not fence:
+            match = SECTION.match(markdown, offset)
+            if match:
+                matches.append(match)
+        offset += len(line)
+    return matches
+
+
 def section_titles(markdown: str) -> tuple[str, ...]:
-    return tuple(match.group(1).strip() for match in SECTION.finditer(markdown))
+    return tuple(match.group(1).strip() for match in _section_matches(markdown))
 
 
 def validate_instructions(markdown: str, instructions: dict[str, str]) -> None:
@@ -40,7 +64,7 @@ def migration(current: str, new_template: str) -> tuple[str, str]:
 
 
 def _split(markdown: str) -> tuple[str, list[tuple[str, str]]]:
-    matches = list(SECTION.finditer(markdown))
+    matches = list(_section_matches(markdown))
     if not matches:
         return markdown, []
     sections = []

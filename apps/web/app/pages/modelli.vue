@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { DossierTemplate } from '~/types'
+import { dossierSections } from '~/utils/dossierSections'
 import { parseTemplate, serializeTemplate, type TemplateSection } from '~/utils/templateSections'
 useHead({ title: 'Modelli fascicolo — OCIO', htmlAttrs: { lang: 'it' } })
 const route = useRoute()
@@ -29,7 +30,7 @@ const validation = computed(() => {
   const titles = sections.value.map(section => section.title.trim())
   if (titles.some(title => !title)) return 'Inserisci un titolo per ogni sezione.'
   if (new Set(titles).size !== titles.length) return 'Ogni sezione deve avere un titolo diverso.'
-  if (sections.value.some(section => /^## /m.test(section.body)) || /^## /m.test(preamble.value)) return 'Per un titolo di secondo livello usa Aggiungi sezione, anziché inserirlo nel contenuto.'
+  if ([preamble.value, ...sections.value.map(section => section.body)].some(text => dossierSections(text).some(section => section.bodyStart > 0))) return 'Per un titolo di secondo livello usa Aggiungi sezione, anziché inserirlo nel contenuto.'
   if (payload.value.markdown.length > 100000) return 'Il modello supera il limite di 100.000 caratteri.'
   return ''
 })
