@@ -3,6 +3,8 @@ import type { Engagement } from '~/types'
 definePageMeta({ key: route => String(route.params.id) })
 const api = useOcioApi()
 const route = useRoute()
+// Throwaway #25 UI, available only in development.
+const intakePrototype = computed(() => import.meta.dev && ['A', 'B', 'C'].includes(String(route.query.variant)))
 const engagement = ref<Engagement | null>(null)
 const markdown = ref('')
 const loading = ref(true)
@@ -52,13 +54,16 @@ async function apply() {
   catch (reason) { error.value = (reason as Error).message }
   finally { saving.value = false }
 }
-onMounted(load)
+onMounted(() => {
+  if (!(intakePrototype.value && route.params.id === 'demo')) load()
+})
 </script>
 
 <template>
   <AppShell section="Fascicolo" back>
-    <template #actions><UButton v-if="engagement" :loading="saving" :disabled="!dirty || saving" @click="save">Salva fascicolo</UButton></template>
-    <div class="space-y-6 p-4 sm:p-6">
+    <template #actions><UButton v-if="engagement && !intakePrototype" :loading="saving" :disabled="!dirty || saving" @click="save">Salva fascicolo</UButton></template>
+    <PrototypeIntakePrototype v-if="intakePrototype" />
+    <div v-else class="space-y-6 p-4 sm:p-6">
       <UAlert v-if="error" role="alert" color="error" :title="error" :actions="!engagement ? [{ label: 'Riprova', onClick: load }] : []" />
       <p v-if="loading" role="status">Caricamento fascicolo…</p>
       <p v-if="notice" role="status" class="text-success">{{ notice }}</p>
