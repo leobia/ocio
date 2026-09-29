@@ -32,6 +32,24 @@ normativa di completezza o aggiornamento dei documenti esaminati.
   nello stesso elaborato.
   [DVR, PDF pp. 7–13, 18–21, 37](https://www.liceociardopellegrinolecce.edu.it/sites/default/files/page/2020/valutazione_dei_rischi_ciardo_0.pdf).
 
+### Riferimento aggiuntivo: profili di comparto INAIL
+
+- La banca dati INAIL sui profili di rischio di comparto organizza il materiale
+  per ciclo produttivo e per singola fase osservata. La descrizione standard di
+  una fase comprende otto capitoli: fase di lavorazione; attrezzature,
+  macchine e impianti; fattore di rischio; danno atteso; interventi; appalto a
+  ditta esterna; riferimenti legislativi; rischio esterno. La pagina chiarisce
+  che si tratta di uno strumento di supporto e indirizzo alla valutazione
+  aziendale, non di un documento da copiare in ogni azienda.
+  [INAIL — Profili di rischio di comparto](https://www.inail.it/portale/ricerca-e-tecnologia/it/ambiti-di-ricerca/area-salute-sul-lavoro/sistemi-di-sorveglianza--gestione-integrata-del-rischio-e-modell/profili-di-rischio-di-comparto.html).
+- Un esempio INAIL/ASL sul comparto degli allevamenti ricostruisce il ciclo e le
+  fasi di lavoro, poi collega fattori di rischio, condizioni concrete e misure
+  preventive personalizzate sull’unità produttiva osservata. È un riferimento
+  utile per l’agente: il settore può suggerire una struttura e domande di
+  approfondimento, ma il testo deve restare ancorato alle modalità di lavoro
+  effettivamente rilevate.
+  [INAIL — Profilo di rischio allevamento bovini e suini, PDF pp. 6–7](https://www.inail.it/content/dam/ricerca-e-tecnologia/documenti/documenti-profili-di-rischio/Allevamento_bovini_suini/index.pdf).
+
 ## Scelte di prodotto
 
 Le seguenti sono scelte per OCIO, informate dagli esempi e dalla conversazione
@@ -49,6 +67,35 @@ con l’utente; non prescrizioni delle fonti.
   L’RSPP rivede e corregge il fascicolo; niente conferme obbligatorie per dato.
 - Le generazioni successive devono rispettare testo manuale e revisioni.
   La checklist del sopralluogo è esclusa per decisione di prodotto.
+
+### Indicazioni per il modello di default
+
+La struttura iniziale dovrebbe essere un fascicolo misto, modificabile e
+duplicabile per attività o fase di lavoro:
+
+1. **Azienda e campo della valutazione** — campi brevi per dati identificativi,
+   sedi, attività e perimetro; una sezione narrativa per descrivere contesto e
+   organizzazione.
+2. **Attività, ambienti e mansioni** — descrizione estesa del ciclo e delle
+   fasi osservate, con tabelle opzionali per mansioni, attrezzature, impianti,
+   materiali e luoghi.
+3. **Analisi dei rischi per fase o tema** — per ogni blocco: situazione
+   osservata, fattori di rischio, possibili effetti, persone o mansioni
+   coinvolte, elementi documentali e valutazione del consulente. Il testo è il
+   contenitore principale; tabelle e matrici sono strumenti di sintesi quando
+   servono.
+4. **Misure e gestione** — testo ragionato sulle misure già presenti e sulla
+   loro applicazione concreta, con eventuale tabella per azioni, responsabili,
+   priorità e tempi. Non precompilare una checklist universale.
+5. **Approfondimenti e allegati** — sezioni per rischi o temi specifici,
+   riferimenti, foto, planimetrie, verbali e documenti collegati.
+
+Il prompt di default dell’agente dovrebbe chiedere prosa professionale completa
+ma fedele: ampliare gli appunti collegando osservazioni, attività e conseguenze
+senza introdurre fatti, misure o valutazioni non presenti. Il settore aziendale
+può selezionare esempi e domande pertinenti; non deve far presumere macchinari,
+esposizioni o procedure tipiche del comparto. Le incertezze vanno mantenute nel
+testo e lasciate all’RSPP per la revisione.
 
 La #25 riguarda l’editing; la #26 acquisizione e analisi del materiale; la #27
 compilazione assistita; la #28 revisione complessiva ed esportazione. Il prototipo A approvato è conservato sul ramo
