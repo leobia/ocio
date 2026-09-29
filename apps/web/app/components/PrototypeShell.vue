@@ -1,15 +1,27 @@
 <script setup lang="ts">
-defineProps<{ section: string }>()
-const router = useRouter()
+defineProps<{ section: string, back?: boolean }>()
+const route = useRoute()
+const links = computed(() => [
+  { label: 'Incarichi', icon: 'i-lucide-briefcase-business', to: '/incarichi', active: route.path === '/incarichi' && route.query.screen !== 'templates' },
+  { label: 'Modelli', icon: 'i-lucide-files', to: '/incarichi?screen=templates&variant=C', active: route.query.screen === 'templates' },
+  { label: 'Assistente', icon: 'i-lucide-message-square-text', to: '/', active: route.path === '/' },
+])
 </script>
 
 <template>
-  <div class="shell">
-    <aside><a class="brand" href="/"><span>O</span><strong>OCIO</strong></a><nav><small>LAVORO</small><a class="active" href="#"><UIcon name="i-lucide-briefcase-business" /> Incarichi</a><a href="#"><UIcon name="i-lucide-files" /> Modelli</a><small>STRUMENTI</small><a href="/"><UIcon name="i-lucide-message-square-text" /> Assistente</a><a href="#"><UIcon name="i-lucide-library" /> Fonti</a></nav></aside>
-    <main><header><div><UButton color="neutral" variant="ghost" icon="i-lucide-arrow-left" aria-label="Torna agli incarichi" @click="router.push('/incarichi')" /><span><small>Officine Bianchi · Torino</small><strong>{{ section }}</strong></span></div><slot name="actions" /></header><slot /></main>
+  <div class="min-h-screen bg-default text-default lg:grid lg:grid-cols-[240px_minmax(0,1fr)]">
+    <aside class="flex flex-col gap-4 border-b border-default bg-muted p-4 lg:sticky lg:top-0 lg:h-screen lg:border-r lg:border-b-0">
+      <NuxtLink to="/incarichi" class="flex items-center gap-2 font-semibold"><UIcon name="i-lucide-shield-check" class="size-6 text-primary" />OCIO</NuxtLink>
+      <UNavigationMenu :items="links" orientation="vertical" />
+      <slot name="sidebar" />
+      <p class="mt-auto text-sm text-muted">Alpha interna · usa solo casi fittizi</p>
+    </aside>
+    <main class="min-w-0">
+      <header class="flex min-h-16 flex-wrap items-center justify-between gap-3 border-b border-default px-4 py-3 sm:px-6">
+        <div class="flex items-center gap-2"><UButton v-if="back" to="/incarichi" icon="i-lucide-arrow-left" color="neutral" variant="ghost" aria-label="Torna agli incarichi" /><h1 class="text-lg font-semibold">{{ section }}</h1></div>
+        <slot name="actions" />
+      </header>
+      <slot />
+    </main>
   </div>
 </template>
-
-<style scoped>
-.shell{min-height:100vh;display:grid;grid-template-columns:224px 1fr;color:#1d2420;background:#f5f6f3;font-family:Inter,ui-sans-serif,system-ui}.shell>aside{display:flex;height:100vh;flex-direction:column;padding:20px 14px;border-right:1px solid #d9ddd8;background:#ecefeb}.brand{display:flex;align-items:center;gap:10px;padding:0 8px 26px;color:inherit;text-decoration:none}.brand span{display:grid;place-items:center;width:32px;height:32px;border-radius:4px;color:#fff;background:#174f3b;font-family:Georgia,serif;font-size:18px}.brand strong{font-size:13px;letter-spacing:.14em}.shell nav{display:grid;gap:2px}.shell nav small{margin:19px 9px 6px;color:#838d87;font-size:8px;font-weight:700;letter-spacing:.12em}.shell nav a{display:flex;align-items:center;gap:9px;padding:9px;border-radius:4px;color:#5e6963;font-size:11px;text-decoration:none}.shell nav a.active{color:#174f3b;background:#fff}.shell>main{min-width:0}.shell>main>header{display:flex;align-items:center;justify-content:space-between;height:68px;padding:0 24px;border-bottom:1px solid #dde1dc;background:#fafbf9}.shell>main>header>div{display:flex;align-items:center;gap:8px}.shell>main>header span{display:grid}.shell>main>header small{color:#758078;font-size:8px}.shell>main>header strong{font-family:Georgia,serif;font-size:16px;font-weight:500}@media(max-width:800px){.shell{grid-template-columns:60px 1fr}.shell>aside{padding-inline:9px}.brand strong,.shell nav small,.shell nav a:not(.active){display:none}.brand{padding-inline:5px}.shell nav a{justify-content:center}}
-</style>

@@ -1,14 +1,29 @@
+<script setup lang="ts">
+const tab = ref('document')
+const tabs = [{ label: 'Contenuti', value: 'document' }, { label: 'Evidenze', value: 'evidence' }, { label: 'Revisione', value: 'revision' }]
+const note = ref('')
+</script>
+
 <template>
-  <PrototypeShell section="Revisione fascicolo">
-    <template #actions><div class="actions"><UButton color="neutral" variant="outline" label="Rifiuta proposta" /><UButton icon="i-lucide-check" label="Approva modifiche" /></div></template>
-    <div class="review">
-      <header class="review-head"><div><span>PROPOSTA DI MIGRAZIONE</span><h1>Revisione 3 → 4</h1><p>4 sezioni modificate, 1 aggiunta, 1 conservata in archivio.</p></div><dl><div><dt>Creata</dt><dd>Oggi, 09:36</dd></div><div><dt>Modello</dt><dd>Fascicolo sicurezza aziendale</dd></div></dl></header>
-      <nav class="review-tabs"><button class="active">Modifiche <span>6</span></button><button>Evidenze <span>12</span></button><button>Contenuti protetti <span>3</span></button></nav>
-      <main class="review-layout"><section class="changes"><article><header><div><span class="change add">AGGIUNTA</span><strong>5. Formazione</strong></div><UBadge color="success" variant="subtle">Sicura</UBadge></header><div class="diff add-line"><i>+</i><code>## 5. Formazione</code></div><div class="diff add-line"><i>+</i><code>- Matrice e scadenziario</code></div><div class="diff add-line"><i>+</i><code>- Attestati e addestramenti</code></div></article><article><header><div><span class="change move">SPOSTATA</span><strong>3. Procedure operative</strong></div><UBadge color="neutral" variant="subtle">Testo invariato</UBadge></header><p>La sezione passa dopo “Valutazione dei rischi”. Il contenuto manuale rimane identico.</p><div class="protected"><UIcon name="i-lucide-lock-keyhole" /><span><strong>Contenuto protetto</strong><small>4 paragrafi manuali · nessuna riscrittura</small></span></div></article><article><header><div><span class="change archive">ARCHIVIATA</span><strong>Macchine</strong></div><UBadge color="warning" variant="subtle">Richiede verifica</UBadge></header><p>La sezione non esiste nella nuova revisione. Verrà conservata nella cronologia e nell’appendice del fascicolo.</p><div class="diff remove-line"><i>−</i><code>## Macchine</code></div></article></section><aside><section><h2>Controlli automatici</h2><ul><li><UIcon name="i-lucide-check" /> Testo manuale preservato</li><li><UIcon name="i-lucide-check" /> Evidenze preservate</li><li><UIcon name="i-lucide-check" /> Sezioni rimosse recuperabili</li><li><UIcon name="i-lucide-check" /> Revisione origine registrata</li></ul></section><section><h2>Decisione</h2><p>L’approvazione crea una nuova versione del fascicolo. Puoi ripristinare quella precedente dalla cronologia.</p><UTextarea :rows="4" placeholder="Nota opzionale sulla revisione…" /></section></aside></main>
+  <PrototypeShell section="Revisione ed evidenze" back>
+    <template #actions><UBadge color="neutral" variant="subtle">Anteprima locale</UBadge></template>
+    <div class="mx-auto max-w-5xl space-y-6 p-4 pb-28 sm:p-6 sm:pb-28">
+      <div><h2 class="text-xl font-semibold">Officine Bianchi</h2><p class="text-muted">Stabilimento nord · Torino · revisione 3</p></div>
+      <UTabs v-model="tab" :items="tabs" :content="false" />
+      <UCard v-if="tab === 'document'">
+        <template #header><h3 class="font-semibold">Contenuti da verificare</h3></template>
+        <div class="space-y-6"><div><UBadge variant="subtle">Anagrafica completa</UBadge><p class="mt-3">RSPP e RLS confermati; nomina del medico competente da verificare.</p></div><div><UBadge color="warning" variant="subtle">Valutazione dei rischi</UBadge><p class="mt-3">Il DVR generale è acquisito. La valutazione rumore richiede un aggiornamento per la nuova linea produttiva.</p></div><UFormField label="Nota di revisione locale"><UTextarea v-model="note" :rows="4" class="w-full" /></UFormField></div>
+      </UCard>
+      <UCard v-else-if="tab === 'evidence'">
+        <template #header><h3 class="font-semibold">Evidenze di esempio</h3></template>
+        <ul class="space-y-4"><li>DVR generale 2025 · acquisito</li><li>Valutazione vibrazioni · corrente</li><li>Valutazione rumore · da aggiornare</li></ul>
+      </UCard>
+      <UCard v-else>
+        <template #header><h3 class="font-semibold">Revisione 4 disponibile</h3></template>
+        <p>Nuova sezione Formazione, riordino delle Procedure operative e conservazione della sezione Macchine.</p>
+        <template #footer><UButton to="/incarichi?screen=migration&variant=A">Confronta la proposta</UButton></template>
+      </UCard>
+      <p class="text-sm text-muted">Prototipo con dati dimostrativi. Le note non vengono salvate.</p>
     </div>
   </PrototypeShell>
 </template>
-
-<style scoped>
-.actions{display:flex;gap:7px}.review{max-width:1120px;margin:0 auto;padding:30px 34px 90px}.review-head{display:flex;align-items:end;justify-content:space-between;padding-bottom:22px;border-bottom:1px solid #dce0db}.review-head>div>span{color:#317154;font-size:7px;font-weight:700;letter-spacing:.13em}.review-head h1{margin:7px 0 5px;font-family:Georgia,serif;font-size:26px;font-weight:400}.review-head p{margin:0;color:#707a74;font-size:9px}.review-head dl{display:flex;gap:30px;margin:0}.review-head dl div{display:grid;gap:3px}.review-head dt{color:#87908a;font-size:7px}.review-head dd{margin:0;font-size:8px}.review-tabs{display:flex;gap:22px;border-bottom:1px solid #dce0db}.review-tabs button{padding:13px 0 10px;border:0;border-bottom:2px solid transparent;color:#727d76;background:transparent;font-size:8px;font-weight:600}.review-tabs button.active{color:#245e47;border-color:#245e47}.review-tabs span{margin-left:4px;padding:1px 4px;border-radius:7px;background:#e1e5e1;font-size:7px}.review-layout{display:grid;grid-template-columns:minmax(0,1fr) 260px;align-items:start;gap:18px;margin-top:18px}.changes{display:grid;gap:12px}.changes article,.review-layout>aside section{padding:16px;border:1px solid #dce0db;border-radius:4px;background:#fff}.changes article>header{display:flex;align-items:center;justify-content:space-between;margin-bottom:13px}.changes article>header>div{display:flex;align-items:center;gap:9px}.changes article strong{font-size:10px}.change{padding:3px 5px;border-radius:2px;font-size:6px;font-weight:800;letter-spacing:.08em}.change.add{color:#27684e;background:#e2eee7}.change.move{color:#52615a;background:#e9ece9}.change.archive{color:#9a5e24;background:#fff0dd}.diff{display:grid;grid-template-columns:24px 1fr;margin:0 -1px;padding:6px 8px;font-size:8px}.diff i{font-style:normal}.add-line{color:#285e48;background:#edf6f0}.remove-line{color:#914c41;background:#fbefed}.changes article>p{margin:0 0 12px;color:#69746d;font-size:8px;line-height:1.5}.protected{display:flex;align-items:center;gap:8px;padding:9px;color:#496657;background:#f0f4f1}.protected>span{display:grid}.protected strong{font-size:8px}.protected small{color:#758079;font-size:7px}.review-layout>aside{display:grid;gap:12px}.review-layout>aside h2{margin:0 0 11px;font-size:9px}.review-layout>aside ul{display:grid;gap:8px;margin:0;padding:0;list-style:none}.review-layout>aside li{display:flex;align-items:center;gap:6px;color:#53635a;font-size:8px}.review-layout>aside li svg{color:#3e7a5c}.review-layout>aside p{margin:0 0 12px;color:#6d7771;font-size:8px;line-height:1.55}@media(max-width:850px){.review-layout{grid-template-columns:1fr}.review-head dl{display:none}}@media(max-width:600px){.review{padding:22px 14px 80px}.actions :deep(span){display:none}}
-</style>

@@ -46,7 +46,7 @@ test('crea una conversazione e rende verificabili risposta, stato e feedback', a
     return json(route, { error: { message: `Unexpected request: ${path}` } }, 404)
   })
 
-  await page.goto('/')
+  await page.goto('/?mode=live')
   await expect(page.getByRole('heading', { name: 'Da cosa vuoi partire?' })).toBeVisible()
   await page.getByLabel('Scrivi una domanda').fill('Quale formazione è obbligatoria?')
   await page.getByRole('button', { name: 'Invia domanda' }).click()
@@ -55,7 +55,7 @@ test('crea una conversazione e rende verificabili risposta, stato e feedback', a
   await expect(page.getByText('Mansione e rischi specifici del lavoratore.')).toBeVisible()
   await expect(page.getByText('La formazione varia in base ai rischi riferiti alle mansioni.')).toBeVisible()
   await page.getByRole('button', { name: /Decreto legislativo/ }).click()
-  await expect(page.getByRole('complementary', { name: 'Dettaglio fonte' })).toContainText(citation.passage)
+  await expect(page.getByRole('dialog', { name: citation.document_title })).toContainText(citation.passage)
   await expect(page.getByRole('link', { name: /Apri la fonte ufficiale/ })).toHaveAttribute('href', 'https://www.normattiva.it/')
   await page.getByRole('button', { name: 'Chiudi dettaglio fonte' }).click()
 
@@ -68,7 +68,8 @@ test('crea una conversazione e rende verificabili risposta, stato e feedback', a
   await page.getByRole('button', { name: 'Risposta utile' }).click()
   await expect(page.getByText('Salvato')).toBeVisible()
   await page.getByRole('button', { name: 'Aggiungi dettagli' }).click()
-  await page.getByLabel('Motivo').selectOption('citation')
+  await page.getByLabel('Motivo').click()
+  await page.getByRole('option', { name: 'Fonte', exact: true }).click()
   await page.getByLabel('Nota opzionale').fill('Fonte chiara e pertinente.')
   await page.getByRole('button', { name: 'Salva dettagli' }).click()
   await expect(page.getByText('Salvato')).toBeVisible()
@@ -96,7 +97,7 @@ test('distingue astensione e consente retry dopo un errore provider', async ({ p
     return json(route, { error: { message: `Unexpected request: ${path}` } }, 404)
   })
 
-  await page.goto('/')
+  await page.goto('/?mode=live')
   await expect(page.getByRole('heading', { name: 'Da cosa vuoi partire?' })).toBeVisible()
   await page.getByLabel('Scrivi una domanda').fill('Questo obbligo si applica?')
   await page.getByRole('button', { name: 'Invia domanda' }).click()
