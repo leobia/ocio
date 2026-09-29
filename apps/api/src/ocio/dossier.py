@@ -22,10 +22,13 @@ def migration(current: str, new_template: str) -> tuple[str, str]:
     """Preserve existing section blocks, add new ones and retain removed ones."""
     current_prefix, current_sections = _split(current)
     new_prefix, new_sections = _split(new_template)
-    proposed = [new_prefix or current_prefix]
+    proposed = [current_prefix or new_prefix]
+    existing: dict[str, list[str]] = {}
+    for title, block in current_sections:
+        existing.setdefault(title, []).append(block)
     for title, template_block in new_sections:
-        proposed.append(dict(current_sections).get(title, template_block))
-    removed = [block for title, block in current_sections if title not in dict(new_sections)]
+        proposed.extend(existing.pop(title, [template_block]))
+    removed = [block for title, block in current_sections if title in existing]
     if removed:
         proposed.extend(["## Sezioni conservate dalla revisione precedente\n", *removed])
     result = "\n".join(part.strip("\n") for part in proposed if part.strip()).strip() + "\n"

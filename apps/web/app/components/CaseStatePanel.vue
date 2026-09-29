@@ -52,36 +52,24 @@ async function save() {
 </script>
 
 <template>
-  <aside class="case-panel" aria-labelledby="case-title">
-    <div class="case-heading">
-      <div><span class="eyebrow">Contesto</span><h2 id="case-title">Dati del caso</h2></div>
-      <button class="round-button" aria-label="Aggiungi dato" @click="edit()">+</button>
-    </div>
-    <p class="case-intro">Dati usati per contestualizzare le risposte. Puoi correggerli in qualsiasi momento.</p>
-
-    <div v-if="!Object.keys(facts).length" class="empty-small">Nessun dato ancora raccolto.</div>
-    <div v-for="(fact, key) in facts" :key="key" class="fact-card">
-      <div class="fact-top"><strong>{{ key.replaceAll('_', ' ') }}</strong><span :class="['status', fact.status]">{{ fact.status }}</span></div>
-      <p>{{ fact.value === null ? 'Da definire' : Array.isArray(fact.value) ? fact.value.join(', ') : fact.value }}</p>
-      <div class="fact-bottom">
-        <small>{{ fact.source_message_id ? 'Dal dialogo' : 'Correzione manuale' }}</small>
-        <button @click="edit(String(key))">Modifica</button>
+  <UCard as="aside" aria-label="Dati del caso">
+    <template #header><div class="flex items-center justify-between gap-3"><h2 class="font-semibold">Dati del caso</h2><UButton icon="i-lucide-plus" color="neutral" variant="ghost" aria-label="Aggiungi dato" @click="edit()" /></div></template>
+    <div class="space-y-4">
+      <p class="text-sm text-muted">Dati usati per contestualizzare le risposte. Puoi correggerli.</p>
+      <p v-if="!Object.keys(facts).length" class="text-sm text-muted">Nessun dato ancora raccolto.</p>
+      <div v-for="(fact, key) in facts" :key="key" class="space-y-2 border-t border-default pt-4">
+        <div class="flex flex-wrap items-center justify-between gap-2"><strong class="break-words">{{ key.replaceAll('_', ' ') }}</strong><UBadge :color="fact.status === 'confirmed' ? 'success' : fact.status === 'inferred' ? 'warning' : 'neutral'" variant="subtle">{{ fact.status }}</UBadge></div>
+        <p class="break-words">{{ fact.value === null ? 'Da definire' : Array.isArray(fact.value) ? fact.value.join(', ') : fact.value }}</p>
+        <div class="flex flex-wrap items-center justify-between gap-2"><small class="text-muted">{{ fact.source_message_id ? 'Dal dialogo' : 'Correzione manuale' }}</small><UButton variant="link" @click="edit(String(key))">Modifica</UButton></div>
       </div>
+      <form v-if="editing !== null" class="space-y-4 border-t border-default pt-4" @submit.prevent="save">
+        <h3 class="font-semibold">{{ editing ? 'Correggi dato' : 'Nuovo dato' }}</h3>
+        <UFormField label="Nome"><UInput v-model="name" :disabled="Boolean(editing)" maxlength="100" class="w-full" /></UFormField>
+        <UFormField label="Valore"><UInput v-model="value" :disabled="status === 'unknown'" class="w-full" /></UFormField>
+        <UFormField label="Stato"><USelect v-model="status" :items="[{ label: 'Confermato', value: 'confirmed' }, { label: 'Dedotto', value: 'inferred' }, { label: 'Sconosciuto', value: 'unknown' }]" class="w-full" /></UFormField>
+        <p v-if="error" class="text-sm text-error" role="alert">{{ error }}</p>
+        <div class="flex justify-end gap-2"><UButton color="neutral" variant="outline" @click="editing = null">Annulla</UButton><UButton type="submit" :loading="saving">Salva</UButton></div>
+      </form>
     </div>
-
-    <form v-if="editing !== null" class="fact-form" @submit.prevent="save">
-      <h3>{{ editing ? 'Correggi dato' : 'Nuovo dato' }}</h3>
-      <label>Nome<input v-model="name" :disabled="Boolean(editing)" maxlength="100"></label>
-      <label>Valore<input v-model="value" :disabled="status === 'unknown'"></label>
-      <label>Stato
-        <select v-model="status">
-          <option value="confirmed">Confermato</option>
-          <option value="inferred">Dedotto</option>
-          <option value="unknown">Sconosciuto</option>
-        </select>
-      </label>
-      <p v-if="error" class="form-error" role="alert">{{ error }}</p>
-      <div class="form-actions"><button type="button" @click="editing = null">Annulla</button><button class="small-primary" :disabled="saving">Salva</button></div>
-    </form>
-  </aside>
+  </UCard>
 </template>

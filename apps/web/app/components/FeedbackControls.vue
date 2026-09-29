@@ -32,25 +32,16 @@ function saveDetails() {
 </script>
 
 <template>
-  <div class="feedback" aria-label="Feedback sulla risposta">
-    <span class="feedback-label">È stata utile?</span>
-    <button class="icon-button" :class="{ selected: rating === 5 }" aria-label="Risposta utile" @click="rate(5)">↑</button>
-    <button class="icon-button" :class="{ selected: rating === 1 }" aria-label="Risposta non utile" @click="rate(1)">↓</button>
-    <button class="detail-button" :aria-expanded="expanded" @click="expanded = !expanded">Aggiungi dettagli</button>
-    <span class="save-state" aria-live="polite">{{ state === 'saved' ? 'Salvato' : state === 'error' ? 'Errore' : '' }}</span>
-    <form v-if="expanded" class="feedback-detail" @submit.prevent="saveDetails">
-      <label>Motivo
-        <select v-model="reason">
-          <option value="">Seleziona</option>
-          <option value="answer">Risposta</option>
-          <option value="citation">Fonte</option>
-          <option value="incomplete">Incompleta</option>
-        </select>
-      </label>
-      <label>Nota opzionale
-        <textarea v-model="details" rows="2" maxlength="2000" />
-      </label>
-      <button class="small-primary" type="submit" :disabled="state === 'saving'">Salva dettagli</button>
+  <div class="flex flex-wrap items-center gap-2 border-t border-default pt-4" aria-label="Feedback sulla risposta">
+    <span class="text-sm text-muted">È stata utile?</span>
+    <UButton color="neutral" :variant="rating === 5 ? 'soft' : 'ghost'" icon="i-lucide-thumbs-up" aria-label="Risposta utile" @click="rate(5)" />
+    <UButton color="neutral" :variant="rating === 1 ? 'soft' : 'ghost'" icon="i-lucide-thumbs-down" aria-label="Risposta non utile" @click="rate(1)" />
+    <UButton variant="link" :aria-expanded="expanded" @click="expanded = !expanded">Aggiungi dettagli</UButton>
+    <span class="text-sm text-muted" aria-live="polite">{{ state === 'saved' ? 'Salvato' : state === 'error' ? 'Errore' : '' }}</span>
+    <form v-if="expanded" class="w-full space-y-4" @submit.prevent="saveDetails">
+      <UFormField label="Motivo"><USelect v-model="reason" placeholder="Seleziona" :items="[{ label: 'Risposta', value: 'answer' }, { label: 'Fonte', value: 'citation' }, { label: 'Incompleta', value: 'incomplete' }]" class="w-full" /></UFormField>
+      <UFormField label="Nota opzionale"><UTextarea v-model="details" :rows="2" maxlength="2000" class="w-full" /></UFormField>
+      <UButton type="submit" :loading="state === 'saving'">Salva dettagli</UButton>
     </form>
   </div>
 </template>
