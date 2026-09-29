@@ -218,3 +218,84 @@ def test_conversation_flow_is_persisted_in_postgres() -> None:
                 connection.execute(text("DELETE FROM messaggi_conversazione WHERE conversazione_id = :id"), parameters)
                 connection.execute(text("DELETE FROM conversazioni WHERE id = :id"), parameters)
         engine.dispose()
+
+
+@pytest.mark.integration
+def test_engagement_template_migration_is_persisted_without_losing_content() -> None:
+    try:
+        engine = create_engine(database_url())
+        with engine.connect() as connection:
+            connection.execute(text("SELECT 1 FROM migrazioni_fascicolo"))
+    except Exception:
+        pytest.skip("PostgreSQL migrato non disponibile")
+    client = TestClient(create_app(PostgresStore(engine), FakeBackend()))
+    template_id: str | None = None
+    engagement_id: str | None = None
+    try:
+        created_template = client.post("/v1/dossier-templates", json={
+            "name": "Modello officina",
+            "markdown": "# Fascicolo\n\n## Identità\n\n## Macchine\n",
+            "instructions": {"Macchine": "Elencare le attrezzature."},
+        })
+        assert created_template.status_code == 201
+        template = created_template.json()
+        template_id = template["id"]
+        revision_id = template["revisions"][0]["id"]
+
+        created_engagement = client.post("/v1/engagements", json={
+            "company": "Officina esempio", "site": "Sede nord",
+            "reference_date": "2026-09-29", "template_revision_id": revision_id,
+        })
+        assert created_engagement.status_code == 201
+        engagement_id = created_engagement.json()["id"]
+        manual = "# Fascicolo\n\n## Identità\n\nTesto manuale approvato.\n\n## Macchine\n\nTrapano T1.\n"
+        assert client.patch(
+            f"/v1/engagements/{engagement_id}/dossier", json={"markdown": manual}
+        ).status_code == 200
+
+        revised = client.post(f"/v1/dossier-templates/{template_id}/revisions", json={
+            "markdown": "# Fascicolo\n\n## Identità\n\n## Formazione\n",
+            "instructions": {"Formazione": "Indicare attestati e scadenze."},
+        })
+        assert revised.status_code == 201
+        before_apply = client.get(f"/v1/engagements/{engagement_id}").json()
+        proposal = before_apply["pending_migration"]
+        assert "Testo manuale approvato." in proposal["proposed_markdown"]
+        assert "Trapano T1." in proposal["proposed_markdown"]
+        assert "Sezioni conservate" in proposal["proposed_markdown"]
+
+        late_manual = manual.replace("Testo manuale approvato.", "Testo manuale approvato e aggiornato.")
+        refreshed = client.patch(
+            f"/v1/engagements/{engagement_id}/dossier", json={"markdown": late_manual}
+        ).json()
+        proposal = refreshed["pending_migration"]
+        assert "approvato e aggiornato" in proposal["proposed_markdown"]
+
+        applied = client.post(
+            f"/v1/engagements/{engagement_id}/migrations/{proposal['id']}/apply"
+        )
+        assert applied.status_code == 200
+        dossier = applied.json()
+        assert dossier["template_revision"]["number"] == 2
+        assert "Testo manuale approvato e aggiornato." in dossier["dossier_markdown"]
+        assert [item["reason"] for item in dossier["history"]] == [
+            "migrazione", "modifica_manuale", "modifica_manuale", "creazione",
+        ]
+        assert "## Macchine" in dossier["history"][2]["dossier_markdown"]
+    finally:
+        if template_id is not None:
+            with engine.begin() as connection:
+                if engagement_id is not None:
+                    params = {"id": UUID(engagement_id)}
+                    connection.execute(text("DELETE FROM migrazioni_fascicolo WHERE incarico_id = :id"), params)
+                    connection.execute(text("DELETE FROM revisioni_fascicolo WHERE incarico_id = :id"), params)
+                    connection.execute(text("DELETE FROM incarichi WHERE id = :id"), params)
+                connection.execute(
+                    text("DELETE FROM revisioni_modello_fascicolo WHERE modello_id = :id"),
+                    {"id": UUID(template_id)},
+                )
+                connection.execute(
+                    text("DELETE FROM modelli_fascicolo WHERE id = :id"),
+                    {"id": UUID(template_id)},
+                )
+        engine.dispose()

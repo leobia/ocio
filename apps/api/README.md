@@ -23,6 +23,11 @@ Il processo HTTP riceve il backend di chat tramite `create_app`; in assenza di
 un backend configurato, le route dati restano disponibili e l'invio di un
 messaggio risponde `503 chat_unavailable`.
 
+Le route `/v1/dossier-templates` e `/v1/engagements` gestiscono modelli
+Markdown revisionati, incarichi e cronologia del fascicolo. Una nuova revisione
+crea una proposta di migrazione con diff; il fascicolo cambia solo dopo
+l'applicazione esplicita e ogni versione resta recuperabile.
+
 ### Runtime della chat
 
 La configurazione versionata è in `config/chat-runtime-v1.yaml`. Per avviare il

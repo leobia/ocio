@@ -109,6 +109,7 @@ onMounted(async () => {
   <div class="app-shell">
     <nav class="conversation-nav" aria-label="Conversazioni">
       <a class="brand" href="/" aria-label="OCIO home"><span>O</span><strong>OCIO</strong></a>
+      <NuxtLink class="section-link" to="/incarichi">Incarichi e fascicoli</NuxtLink>
       <button class="new-chat" @click="startConversation"><span>＋</span> Nuova conversazione</button>
       <div class="history-label">Conversazioni</div>
       <div class="conversation-list">
