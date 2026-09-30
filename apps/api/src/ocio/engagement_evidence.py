@@ -153,6 +153,9 @@ class PostgresEvidenceStore:
                     "INSERT INTO allegati_incarico (id, messaggio_id, nome, tipo, istruzione, contenuto) "
                     "VALUES (:id, :message_id, :name, :media_type, :instruction, :data)"
                 ), {"id": uuid4(), "message_id": message_id, "name": name, "media_type": media_type, "instruction": instruction, "data": data})
+            connection.execute(text(
+                "UPDATE incarichi SET versione_stato = versione_stato + 1 WHERE id = :id"
+            ), {"id": engagement_id})
         return next(item for item in self.messages(engagement_id) or [] if item["id"] == str(message_id))
 
     def messages(self, engagement_id: UUID) -> list[dict[str, Any]] | None:
@@ -161,7 +164,7 @@ class PostgresEvidenceStore:
             if exists is None:
                 return None
             rows = connection.execute(text(
-                "SELECT id, contenuto, creato_il FROM messaggi_incarico "
+                "SELECT id, ruolo, contenuto, creato_il FROM messaggi_incarico "
                 "WHERE incarico_id = :id ORDER BY creato_il, id"
             ), {"id": engagement_id}).mappings().all()
             result = []
@@ -176,7 +179,8 @@ class PostgresEvidenceStore:
                     "WHERE messaggio_id = :id ORDER BY creata_il, id"
                 ), {"id": row["id"]}).mappings().all()
                 result.append({
-                    "id": str(row["id"]), "content": row["contenuto"], "created_at": row["creato_il"],
+                    "id": str(row["id"]), "role": row["ruolo"],
+                    "content": row["contenuto"], "created_at": row["creato_il"],
                     "attachments": [{
                         "id": str(item["id"]), "name": item["nome"], "media_type": item["tipo"],
                         "instruction": item["istruzione"],
@@ -214,6 +218,9 @@ class PostgresEvidenceStore:
                 "UPDATE allegati_incarico SET stato = 'analizzato', errore = NULL "
                 "WHERE id = :id AND messaggio_id = :message_id"
             ), {"id": attachment_id, "message_id": message_id})
+            connection.execute(text(
+                "UPDATE incarichi SET versione_stato = versione_stato + 1 WHERE id = :id"
+            ), {"id": engagement_id})
 
     def record_error(self, engagement_id: UUID, attachment_id: UUID, error: str) -> None:
         with self.engine.begin() as connection:
@@ -222,6 +229,9 @@ class PostgresEvidenceStore:
                 "FROM messaggi_incarico m WHERE a.id = :id AND a.messaggio_id = m.id "
                 "AND m.incarico_id = :engagement_id"
             ), {"id": attachment_id, "engagement_id": engagement_id, "error": error[:500]})
+            connection.execute(text(
+                "UPDATE incarichi SET versione_stato = versione_stato + 1 WHERE id = :id"
+            ), {"id": engagement_id})
 
     def link_section(self, engagement_id: UUID, observation_id: UUID, section: str | None) -> bool:
         with self.engine.begin() as connection:
@@ -230,6 +240,10 @@ class PostgresEvidenceStore:
                 "FROM messaggi_incarico m WHERE o.id = :id AND o.messaggio_id = m.id "
                 "AND m.incarico_id = :engagement_id"
             ), {"section": section, "id": observation_id, "engagement_id": engagement_id})
+            if result.rowcount == 1:
+                connection.execute(text(
+                    "UPDATE incarichi SET versione_stato = versione_stato + 1 WHERE id = :id"
+                ), {"id": engagement_id})
             return result.rowcount == 1
 
     def record_note(self, engagement_id: UUID, message_id: UUID, content: str) -> None:
@@ -264,7 +278,8 @@ class MemoryEvidenceStore:
         if engagement_id not in self.engagements:
             return None
         value: dict[str, Any] = {
-            "id": str(uuid4()), "content": content, "created_at": datetime.now(UTC),
+            "id": str(uuid4()), "role": "user", "content": content,
+            "created_at": datetime.now(UTC),
             "attachments": [], "observations": [],
         }
         for name, media_type, data, instruction in files:

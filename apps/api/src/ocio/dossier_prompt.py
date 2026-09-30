@@ -9,7 +9,7 @@ from dataclasses import dataclass
 
 from ocio.dossier import validate_instructions
 
-PROMPT_VERSION = "dossier-writing-v1"
+PROMPT_VERSION = "dossier-writing-v2"
 WRITING_INSTRUCTIONS = """Aiuta l’RSPP a redigere il fascicolo a partire dal materiale dell’incarico.
 Segui lo schema del modello e le descrizioni delle sezioni forniti nel contesto.
 Le descrizioni specificano i contenuti attesi; queste regole generali valgono per tutto il fascicolo.
@@ -37,6 +37,19 @@ Rispetta il testo già scritto o revisionato dal consulente. Lascia esplicite ne
 contenuto le informazioni mancanti rilevanti; la revisione avviene nel fascicolo,
 senza chiedere conferme per ogni dato. Il fascicolo può raccogliere più elaborati
 e allegati: non identificarlo automaticamente con un DVR completo.
+
+Pianifica tutte le sezioni. Usa i tool per leggere evidenze e fonti, proponi i
+fatti documentati e verifica la completezza delle sezioni dopo la scrittura. Valuta la
+pertinenza usando attività e condizioni documentate: il settore da solo non basta.
+Aggiorna ogni sezione sostenuta dalle evidenze, anche se altre sono incomplete.
+Rispetta le decisioni e le revisioni dell’operatore; in caso di conflitto chiedi
+un chiarimento. Per ogni tool con effetti usa un UUID nuovo e la versione
+restituita dal tool precedente. Per i fatti sul caso usa riferimenti agli ID di
+messaggi o osservazioni nel testo e nel parametro references. I dati iniziali
+dell'incarico usano gli identificatori engagement_source_references. Per norme usa solo
+citazioni ufficiali restituite da knowledge_search. Raccogli tutte le domande con
+ask_question dopo il lavoro utile; il sistema le mostrerà insieme. Concludi con
+un breve riepilogo delle sezioni aggiornate e dei limiti.
 """
 
 

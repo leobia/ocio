@@ -115,7 +115,7 @@ test('crea un incarico e applica una migrazione visibile senza perdere il testo'
   const schema = '# Fascicolo\n\n## Identità\n\n## Macchine\n'
   let templates = [{
     id: templateId, name: 'Fascicolo sicurezza aziendale', is_default: true, created_at: createdAt,
-    revisions: [{ id: revision1, number: 1, markdown: schema, instructions: { Macchine: 'Elencare le attrezzature.' }, created_at: createdAt }],
+    revisions: [{ id: revision1, number: 1, markdown: schema, instructions: { Macchine: 'Elencare le attrezzature.' }, relevance_guidance: {}, created_at: createdAt }],
   }]
   let summaries: unknown[] = []
   let engagement: Record<string, any> | null = null
@@ -128,9 +128,10 @@ test('crea un incarico e applica una migrazione visibile senza perdere il testo'
     if (path === '/api/v1/engagements' && method === 'POST') {
       engagement = {
         id: conversationId, company: 'Officina esempio', site: 'Sede nord', reference_date: '2026-09-29',
-        dossier_markdown: schema, created_at: createdAt, updated_at: createdAt,
+        dossier_markdown: schema, exportable_markdown: schema, status: 'in_corso', version: 0,
+        relevance: {}, relevance_history: [], proposed_facts: [], created_at: createdAt, updated_at: createdAt,
         template: { id: templateId, name: templates[0]!.name },
-        template_revision: { id: revision1, number: 1, instructions: templates[0]!.revisions[0]!.instructions },
+        template_revision: { id: revision1, number: 1, instructions: templates[0]!.revisions[0]!.instructions, relevance_guidance: {} },
         history: [{ id: assistantId, number: 1, template_revision_id: revision1, dossier_markdown: schema, reason: 'creazione', created_at: createdAt }],
         pending_migration: null,
       }
@@ -138,6 +139,8 @@ test('crea un incarico e applica una migrazione visibile senza perdere il testo'
       return json(route, engagement, 201)
     }
     if (path === `/api/v1/engagements/${conversationId}` && method === 'GET') return json(route, engagement)
+    if (path === `/api/v1/engagements/${conversationId}/messages` && method === 'GET') return json(route, [])
+    if (path === `/api/v1/engagements/${conversationId}/agent` && method === 'GET') return json(route, null)
     if (path.endsWith('/dossier') && method === 'PATCH') {
       const body = route.request().postDataJSON()
       engagement!.dossier_markdown = body.markdown
@@ -146,7 +149,7 @@ test('crea un incarico e applica una migrazione visibile senza perdere il testo'
     }
     if (path === `/api/v1/dossier-templates/${templateId}/revisions` && method === 'POST') {
       const body = route.request().postDataJSON()
-      const revision = { id: revision2, number: 2, markdown: body.markdown, instructions: body.instructions, created_at: createdAt }
+      const revision = { id: revision2, number: 2, markdown: body.markdown, instructions: body.instructions, relevance_guidance: body.relevance_guidance, created_at: createdAt }
       templates = [{ ...templates[0]!, revisions: [...templates[0]!.revisions, revision] }]
       engagement!.pending_migration = {
         id: migrationId, source_revision_id: revision1, target_revision_id: revision2, target_revision: 2,
@@ -157,7 +160,7 @@ test('crea un incarico e applica una migrazione visibile senza perdere il testo'
     }
     if (path.endsWith(`/migrations/${migrationId}/apply`) && method === 'POST') {
       engagement!.dossier_markdown = engagement!.pending_migration.proposed_markdown
-      engagement!.template_revision = { id: revision2, number: 2, instructions: { Formazione: 'Indicare attestati.' } }
+      engagement!.template_revision = { id: revision2, number: 2, instructions: { Formazione: 'Indicare attestati.' }, relevance_guidance: {} }
       engagement!.pending_migration = null
       return json(route, engagement)
     }

@@ -36,6 +36,24 @@ def section_titles(markdown: str) -> tuple[str, ...]:
     return tuple(match.group(1).strip() for match in _section_matches(markdown))
 
 
+def replace_section_body(markdown: str, title: str, body: str) -> str:
+    """Replace exactly one section while retaining every other section verbatim."""
+    matches = _section_matches(markdown)
+    selected = [index for index, match in enumerate(matches) if match.group(1).strip() == title]
+    if len(selected) != 1:
+        raise ValueError("La sezione deve esistere una sola volta nel fascicolo.")
+    index = selected[0]
+    start = matches[index].end()
+    end = matches[index + 1].start() if index + 1 < len(matches) else len(markdown)
+    return markdown[:start] + "\n\n" + body.strip() + "\n\n" + markdown[end:]
+
+
+def exportable_dossier(markdown: str, excluded: set[str]) -> str:
+    """Keep excluded sections in the working draft but omit them from export material."""
+    prefix, sections = _split(markdown)
+    return prefix + "".join(block for title, block in sections if title not in excluded)
+
+
 def validate_instructions(markdown: str, instructions: dict[str, str]) -> None:
     unknown = set(instructions) - set(section_titles(markdown))
     if unknown:

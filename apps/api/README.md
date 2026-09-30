@@ -28,6 +28,15 @@ Markdown revisionati, incarichi e cronologia del fascicolo. Una nuova revisione
 crea una proposta di migrazione con diff; il fascicolo cambia solo dopo
 l'applicazione esplicita e ogni versione resta recuperabile.
 
+La compilazione assistita parte da `POST /v1/engagements/{id}/agent/runs` dopo
+l'invio di appunti o allegati nella chat dell'incarico. `GET .../agent` mostra
+piano, eventi e domande del run; risposte e correzioni avviano un nuovo run dallo
+stato persistito. `OCIO_DOSSIER_MODEL` seleziona il modello (predefinito:
+`gpt-4.1`) e richiede `OPENAI_API_KEY`. La ricerca normativa usa il profilo chat
+configurato; senza profilo l'agente non deve formulare affermazioni normative
+specifiche. Il tracing hosted dell'Agents SDK è disabilitato: piano, tool,
+risultati e versioni sono registrati nel database OCIO.
+
 ### Runtime della chat
 
 La configurazione versionata è in `config/chat-runtime-v1.yaml`. Per avviare il

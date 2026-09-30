@@ -55,6 +55,7 @@ function updateFiles(event: Event) {
     <p v-if="!messages.length" class="rounded-lg border border-dashed p-6 text-sm text-muted">Nessun materiale acquisito per questo incarico.</p>
     <article v-for="message in messages" :key="message.id" class="rounded-lg border p-4 space-y-4">
       <div class="flex items-start justify-between gap-3">
+        <UBadge :color="message.role === 'assistant' ? 'primary' : 'neutral'" variant="subtle">{{ message.role === 'assistant' ? 'OCIO' : 'Operatore' }}</UBadge>
         <p class="whitespace-pre-wrap break-words">{{ message.content || 'Allegati con istruzioni dedicate' }}</p>
         <time class="shrink-0 text-xs text-muted">{{ new Date(message.created_at).toLocaleString('it-IT') }}</time>
       </div>

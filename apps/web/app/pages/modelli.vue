@@ -20,7 +20,7 @@ const preview = ref(false)
 const selected = computed(() => templates.value.find(item => item.id === selectedId.value))
 const revision = computed(() => selected.value?.revisions.at(-1))
 const payload = computed(() => serializeTemplate(preamble.value, sections.value))
-const snapshot = computed(() => JSON.stringify({ name: name.value, preamble: preamble.value, sections: sections.value.map(({ title, body, instruction }) => ({ title, body, instruction })) }))
+const snapshot = computed(() => JSON.stringify({ name: name.value, preamble: preamble.value, sections: sections.value.map(({ title, body, instruction, relevance }) => ({ title, body, instruction, relevance })) }))
 const dirty = computed(() => !loading.value && baseline.value !== snapshot.value)
 const options = computed(() => templates.value.map(item => ({ label: item.name, value: item.id })))
 const backToEngagement = computed(() => typeof route.query.engagement === 'string' ? `/incarichi/${encodeURIComponent(route.query.engagement)}` : '')
@@ -40,11 +40,11 @@ function edit(template?: DossierTemplate) {
   selectedId.value = template?.id || ''
   name.value = template?.name || ''
   const latest = template?.revisions.at(-1)
-  const parsed = parseTemplate(latest?.markdown || '', latest?.instructions || {})
+  const parsed = parseTemplate(latest?.markdown || '', latest?.instructions || {}, latest?.relevance_guidance || {})
   preamble.value = parsed.preamble
   sections.value = parsed.sections
   nextId = sections.value.length + 1
-  if (!template) sections.value.push({ id: nextId++, title: '', body: '', instruction: '' })
+  if (!template) sections.value.push({ id: nextId++, title: '', body: '', instruction: '', relevance: '' })
   baseline.value = snapshot.value
   error.value = ''
   notice.value = ''
@@ -65,7 +65,7 @@ async function load() {
 }
 async function addSection() {
   const id = nextId++
-  sections.value.push({ id, title: '', body: '', instruction: '' })
+  sections.value.push({ id, title: '', body: '', instruction: '', relevance: '' })
   await nextTick()
   document.getElementById(`section-title-${id}`)?.focus()
 }
@@ -120,6 +120,7 @@ onMounted(load)
             <div class="space-y-4">
               <UFormField label="Titolo della sezione" required><UInput :id="`section-title-${section.id}`" v-model="section.title" required class="w-full" /></UFormField>
               <UFormField label="Descrizione della sezione" description="Contenuti da trattare e approfondimenti specifici di questa sezione."><UTextarea v-model="section.instruction" :rows="3" class="w-full" /></UFormField>
+              <UFormField label="Indicazioni di pertinenza" description="Condizioni da valutare per includere la sezione, distinte dal contenuto da scrivere."><UTextarea v-model="section.relevance" :rows="2" class="w-full" /></UFormField>
               <details><summary class="cursor-pointer text-sm text-muted">Contenuto iniziale{{ section.body ? ' · presente' : ' (facoltativo)' }}</summary><UFormField class="mt-4" label="Contenuto iniziale Markdown"><UTextarea v-model="section.body" :rows="4" class="w-full" /></UFormField></details>
             </div>
           </UCard>

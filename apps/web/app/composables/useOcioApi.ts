@@ -1,6 +1,6 @@
 import type {
   Answer, CaseFact, Conversation, ConversationSummary, DossierTemplate,
-  DossierTemplateRevision, Engagement, EngagementMessage, EngagementSummary,
+  DossierTemplateRevision, Engagement, EngagementMessage, EngagementSummary, DossierAgentRun,
 } from '~/types'
 
 interface ApiErrorBody {
@@ -35,10 +35,10 @@ export function useOcioApi() {
       `/messages/${messageId}/feedback`, { method: 'POST', body },
     ),
     listTemplates: () => request<DossierTemplate[]>('/dossier-templates'),
-    createTemplate: (body: { name: string, markdown: string, instructions: Record<string, string> }) => request<DossierTemplate>(
+    createTemplate: (body: { name: string, markdown: string, instructions: Record<string, string>, relevance_guidance: Record<string, string> }) => request<DossierTemplate>(
       '/dossier-templates', { method: 'POST', body },
     ),
-    reviseTemplate: (id: string, body: { markdown: string, instructions: Record<string, string> }) => request<DossierTemplateRevision>(
+    reviseTemplate: (id: string, body: { markdown: string, instructions: Record<string, string>, relevance_guidance: Record<string, string> }) => request<DossierTemplateRevision>(
       `/dossier-templates/${id}/revisions`, { method: 'POST', body },
     ),
     listEngagements: () => request<EngagementSummary[]>('/engagements'),
@@ -46,6 +46,11 @@ export function useOcioApi() {
       '/engagements', { method: 'POST', body },
     ),
     getEngagement: (id: string) => request<Engagement>(`/engagements/${id}`),
+    getEngagementAgent: (id: string) => request<DossierAgentRun | null>(`/engagements/${id}/agent`),
+    startEngagementAgent: (id: string) => request<DossierAgentRun>(`/engagements/${id}/agent/runs`, { method: 'POST' }),
+    setEngagementRelevance: (id: string, section: string, body: { status: string, reason: string, references: string[] }) => request<Engagement>(
+      `/engagements/${id}/relevance/${encodeURIComponent(section)}`, { method: 'PATCH', body },
+    ),
     getEngagementMessages: (id: string) => request<EngagementMessage[]>(`/engagements/${id}/messages`),
     sendEngagementMessage: (id: string, body: FormData) => request<EngagementMessage>(
       `/engagements/${id}/messages`, { method: 'POST', body },

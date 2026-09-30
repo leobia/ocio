@@ -23,9 +23,10 @@ test('modifica una sezione lunga con tabella, conserva le altre e recupera un sa
   const created = '2026-09-29T10:00:00Z'
   const engagement = {
     id, company: 'Officina prova editor', site: 'Padova', reference_date: '2026-09-29', dossier_markdown: original,
+    exportable_markdown: original, status: 'in_corso', version: 0, relevance: {}, relevance_history: [], proposed_facts: [],
     created_at: created, updated_at: created,
     template: { id: 'template-1', name: 'Modello personalizzato' },
-    template_revision: { id: 'r1', number: 1, instructions: { Attività: 'Descrivere le fasi osservate.', Ambienti: 'Riportare il layout.' } },
+    template_revision: { id: 'r1', number: 1, instructions: { Attività: 'Descrivere le fasi osservate.', Ambienti: 'Riportare il layout.' }, relevance_guidance: {} },
     history: [{ id: 'h1', number: 1, template_revision_id: 'r1', dossier_markdown: original, reason: 'creazione', created_at: created }],
     pending_migration: null,
   }
@@ -33,7 +34,11 @@ test('modifica una sezione lunga con tabella, conserva le altre e recupera un sa
   let releaseSave!: () => void
   const saveGate = new Promise<void>(resolve => { releaseSave = resolve })
   await page.route('**/api/v1/engagements/**', async route => {
-    if (route.request().method() === 'GET') return route.fulfill({ json: engagement })
+    if (route.request().method() === 'GET') {
+      if (route.request().url().endsWith('/messages')) return route.fulfill({ json: [] })
+      if (route.request().url().endsWith('/agent')) return route.fulfill({ json: null })
+      return route.fulfill({ json: engagement })
+    }
     attempts++
     if (attempts === 1) {
       await saveGate
@@ -55,7 +60,7 @@ test('modifica una sezione lunga con tabella, conserva le altre e recupera un sa
   await page.getByRole('menuitem', { name: 'Aggiungi riga', exact: true }).click()
   await expect(editor.getByRole('row')).toHaveCount(3)
   await editor.getByRole('row').last().locator('td').first().fill('Avvitatore')
-  await editor.locator('p').first().click()
+  await editor.locator('p:visible').first().click()
   await page.keyboard.press('Home')
   await page.keyboard.type('Nota del consulente. ')
   await page.getByRole('button', { name: '03 Ambienti', exact: true }).click()
@@ -93,11 +98,17 @@ test('modifica una sezione lunga con tabella, conserva le altre e recupera un sa
 
 test('scrive più paragrafi sotto i titoli vuoti senza bloccare editor e annullamento', async ({ page }) => {
   const markdown = '## Attività\n\n### Fasi operative\n\n### Mansioni\n\n## Ambienti\n\nDa descrivere.\n'
-  await page.route('**/api/v1/engagements/**', route => route.fulfill({ json: {
+  await page.route('**/api/v1/engagements/**', route => {
+    if (route.request().url().endsWith('/messages')) return route.fulfill({ json: [] })
+    if (route.request().url().endsWith('/agent')) return route.fulfill({ json: null })
+    return route.fulfill({ json: {
     id: 'empty', company: 'Prova sezioni vuote', site: 'Padova', reference_date: '2026-09-29',
-    dossier_markdown: markdown, template: { name: 'Modello' }, template_revision: { number: 1, instructions: {} },
+    dossier_markdown: markdown, exportable_markdown: markdown, status: 'in_corso', version: 0,
+    relevance: {}, relevance_history: [], proposed_facts: [],
+    template: { name: 'Modello' }, template_revision: { number: 1, instructions: {}, relevance_guidance: {} },
     history: [], pending_migration: null,
-  } }))
+  } })
+  })
   await page.goto('/incarichi/empty')
   const editor = page.getByRole('textbox', { name: 'Testo: Attività', exact: true })
   await editor.locator('p').last().click()
@@ -112,4 +123,54 @@ test('scrive più paragrafi sotto i titoli vuoti senza bloccare editor e annulla
   await page.getByRole('button', { name: '02 Ambienti', exact: true }).click()
   await page.getByRole('button', { name: '01 Attività', exact: true }).click()
   await expect(editor).toContainText('Prima riga.')
+})
+
+test('mostra chat e bozza, poi riprende dopo una risposta', async ({ page }) => {
+  const id = '22222222-2222-4222-8222-222222222222'
+  const created = '2026-09-30T10:00:00Z'
+  const engagement = {
+    id, company: 'Studio prova', site: 'Roma', reference_date: '2026-09-30',
+    dossier_markdown: '## Attività\n\nDa completare.\n', exportable_markdown: '## Attività\n\nDa completare.\n',
+    status: 'in_corso', version: 0, relevance: {}, relevance_history: [], proposed_facts: [],
+    created_at: created, updated_at: created, template: { id: 'm1', name: 'Modello' },
+    template_revision: { id: 'r1', number: 1, instructions: {}, relevance_guidance: {} },
+    history: [], pending_migration: null,
+  }
+  const messages: { id: string, role: string, content: string, created_at: string, attachments: never[], observations: never[] }[] = []
+  let lastRun: Record<string, any> | null = null
+  let runs = 0
+  await page.route('**/api/v1/engagements/**', (route) => {
+    const path = new URL(route.request().url()).pathname
+    const method = route.request().method()
+    if (path.endsWith('/agent') && method === 'GET') return route.fulfill({ json: lastRun })
+    if (path.endsWith('/messages') && method === 'GET') return route.fulfill({ json: messages })
+    if (path.endsWith('/messages') && method === 'POST') {
+      const message = { id: `u${messages.length}`, role: 'user', content: 'La sede è un ufficio.', created_at: created, attachments: [], observations: [] }
+      messages.push(message)
+      return route.fulfill({ status: 201, json: message })
+    }
+    if (path.endsWith('/agent/runs') && method === 'POST') {
+      runs++
+      const waiting = runs === 1
+      lastRun = { id: `run-${runs}`, status: waiting ? 'in_attesa' : 'completato', model: 'gpt-4.1',
+        prompt_version: 'dossier-writing-v2', template_revision_id: 'r1', plan: 'Verificare le attività.',
+        questions: waiting ? [{ question: 'Qual è l’attività svolta?', impact: 5, section: 'Attività' }] : [],
+        reason: 'Compilazione conclusa.', created_at: created, finished_at: created, events: [] }
+      engagement.status = waiting ? 'in_attesa' : 'completato'
+      if (!waiting) engagement.dossier_markdown = '## Attività\n\nLa sede è un ufficio.\n'
+      engagement.version++
+      messages.push({ id: `a${runs}`, role: 'assistant', content: waiting ? 'Per proseguire servono queste informazioni:\n1. Qual è l’attività svolta?' : 'Sezione aggiornata.', created_at: created, attachments: [], observations: [] })
+      return route.fulfill({ json: lastRun })
+    }
+    return route.fulfill({ json: engagement })
+  })
+  await page.goto(`/incarichi/${id}`)
+  await expect(page.getByRole('heading', { name: 'Studio prova' })).toBeVisible()
+  await expect(page.getByRole('textbox', { name: 'Testo: Attività' })).toBeVisible()
+  await page.getByRole('button', { name: 'Avvia compilazione' }).click()
+  await expect(page.getByText('Qual è l’attività svolta?', { exact: false })).toBeVisible()
+  await page.getByRole('textbox', { name: 'Messaggio e istruzioni per gli allegati' }).fill('La sede è un ufficio.')
+  await page.getByRole('button', { name: "Invia all'incarico" }).click()
+  await expect(page.getByRole('textbox', { name: 'Testo: Attività' })).toContainText('La sede è un ufficio.')
+  expect(runs).toBe(2)
 })
