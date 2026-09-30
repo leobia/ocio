@@ -8,16 +8,25 @@ from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass
 from datetime import date, datetime
 from typing import Any, Literal, Protocol
+from urllib.parse import quote
 from uuid import UUID, uuid4
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, File, Form, Request, UploadFile
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy import Engine, create_engine, text
 
 from ocio.database import database_url
-from ocio.dossier import migration, validate_instructions
+from ocio.dossier import migration, section_titles, validate_instructions
+from ocio.engagement_evidence import (
+    SUPPORTED,
+    EvidenceAnalyzer,
+    EvidenceStore,
+    MemoryEvidenceStore,
+    OpenAIEvidenceAnalyzer,
+    PostgresEvidenceStore,
+)
 
 LOGGER = logging.getLogger("ocio.api")
 
@@ -661,6 +670,10 @@ class DossierInput(BaseModel):
     markdown: str = Field(min_length=1, max_length=500_000)
 
 
+class ObservationSectionInput(BaseModel):
+    section: str | None = None
+
+
 class CitationOutput(BaseModel):
     model_config = ConfigDict(extra="allow")
     id: UUID
@@ -736,7 +749,9 @@ ERROR_RESPONSES: dict[int | str, dict[str, Any]] = {
 
 
 def create_app(
-    store: Store | None = None, backend: ChatBackend | None = None
+    store: Store | None = None, backend: ChatBackend | None = None,
+    evidence_store: EvidenceStore | None = None,
+    evidence_analyzer: EvidenceAnalyzer | None = None,
 ) -> FastAPI:
     app = FastAPI(
         title="OCIO API", version="1.0.0",
@@ -752,6 +767,11 @@ def create_app(
     else:
         selected_store = store
     selected_backend = backend or UnconfiguredBackend()
+    selected_evidence_store = evidence_store or (
+        PostgresEvidenceStore(selected_store.engine)
+        if isinstance(selected_store, PostgresStore) else MemoryEvidenceStore()
+    )
+    selected_evidence_analyzer = evidence_analyzer or OpenAIEvidenceAnalyzer()
 
     @app.middleware("http")
     async def request_id_middleware(request: Request, call_next: Any) -> Any:
@@ -920,6 +940,98 @@ def create_app(
         if result is None:
             raise ApiError(404, "engagement_not_found", "Incarico non trovato.")
         return result
+
+    @app.get("/v1/engagements/{engagement_id}/messages", responses=ERROR_RESPONSES)
+    def engagement_messages(engagement_id: UUID) -> list[dict[str, Any]]:
+        result = selected_evidence_store.messages(engagement_id)
+        if result is None:
+            raise ApiError(404, "engagement_not_found", "Incarico non trovato.")
+        return result
+
+    @app.post("/v1/engagements/{engagement_id}/messages", status_code=201, responses=ERROR_RESPONSES)
+    async def add_engagement_message(
+        engagement_id: UUID,
+        content: str = Form(default=""),
+        files: list[UploadFile] = File(default=[]),
+        file_instructions: list[str] = Form(default=[]),
+    ) -> dict[str, Any]:
+        if not content.strip() and not files:
+            raise ApiError(422, "empty_message", "Scrivi un messaggio o allega un file.")
+        if len(files) > 5:
+            raise ApiError(422, "too_many_files", "Allega al massimo cinque file per messaggio.")
+        if len(content) > 10_000:
+            raise ApiError(422, "message_too_long", "Il messaggio supera 10.000 caratteri.")
+        if file_instructions and len(file_instructions) != len(files):
+            raise ApiError(422, "invalid_file_instructions", "Indica un'istruzione per ogni file.")
+        original: list[tuple[str, str, bytes, str]] = []
+        for index, file in enumerate(files):
+            data = await file.read(10_000_001)
+            if len(data) > 10_000_000:
+                raise ApiError(413, "file_too_large", "Ogni file può contenere al massimo 10 MB.")
+            instruction = (file_instructions[index].strip() if file_instructions else "") or content.strip()
+            if len(instruction) > 10_000:
+                raise ApiError(422, "instruction_too_long", "L'istruzione supera 10.000 caratteri.")
+            original.append((file.filename or "allegato", file.content_type or "application/octet-stream", data, instruction))
+        message = selected_evidence_store.add_message(engagement_id, content.strip(), original)
+        if message is None:
+            raise ApiError(404, "engagement_not_found", "Incarico non trovato.")
+        engagement = selected_store.engagement(engagement_id)
+        assert engagement is not None
+        sections = section_titles(engagement["dossier_markdown"])
+        # Persist the message and every original before analysis can fail.
+        for attachment in message["attachments"]:
+            identifier = UUID(attachment["id"])
+            source = selected_evidence_store.attachment(engagement_id, identifier)
+            assert source is not None
+            _, media_type, data = source
+            try:
+                if media_type not in SUPPORTED:
+                    raise ValueError("Formato non supportato. Usa JPEG, PNG, WebP, PDF o testo semplice.")
+                method, observations = selected_evidence_analyzer.analyze(
+                    data, media_type, attachment["instruction"], sections
+                )
+                selected_evidence_store.record_analysis(
+                    engagement_id, UUID(message["id"]), identifier,
+                    attachment["instruction"], method, observations,
+                )
+            except Exception as error:
+                LOGGER.warning("engagement evidence analysis failed", extra={
+                    "engagement_id": str(engagement_id), "attachment_id": str(identifier),
+                    "error_type": type(error).__name__,
+                })
+                reason = str(error) if isinstance(error, ValueError) else "Analisi non disponibile. L'originale è stato conservato."
+                selected_evidence_store.record_error(engagement_id, identifier, reason)
+        if not files and content.strip():
+            selected_evidence_store.record_note(
+                engagement_id, UUID(message["id"]), content.strip()
+            )
+        result = selected_evidence_store.messages(engagement_id)
+        assert result is not None
+        return next(item for item in result if item["id"] == message["id"])
+
+    @app.get("/v1/engagements/{engagement_id}/attachments/{attachment_id}", responses=ERROR_RESPONSES)
+    def get_engagement_attachment(engagement_id: UUID, attachment_id: UUID) -> Response:
+        result = selected_evidence_store.attachment(engagement_id, attachment_id)
+        if result is None:
+            raise ApiError(404, "attachment_not_found", "Allegato non trovato.")
+        name, media_type, data = result
+        return Response(data, media_type=media_type, headers={
+            "Content-Disposition": f"attachment; filename*=UTF-8''{quote(name, safe='')}",
+            "X-Content-Type-Options": "nosniff",
+        })
+
+    @app.patch("/v1/engagements/{engagement_id}/observations/{observation_id}", responses=ERROR_RESPONSES)
+    def link_observation(
+        engagement_id: UUID, observation_id: UUID, payload: ObservationSectionInput
+    ) -> dict[str, str | None]:
+        engagement = selected_store.engagement(engagement_id)
+        if engagement is None:
+            raise ApiError(404, "engagement_not_found", "Incarico non trovato.")
+        if payload.section is not None and payload.section not in section_titles(engagement["dossier_markdown"]):
+            raise ApiError(422, "section_not_found", "Sezione del fascicolo non trovata.")
+        if not selected_evidence_store.link_section(engagement_id, observation_id, payload.section):
+            raise ApiError(404, "observation_not_found", "Osservazione non trovata.")
+        return {"section": payload.section}
 
     @app.patch("/v1/engagements/{engagement_id}/dossier", responses=ERROR_RESPONSES)
     def update_dossier(

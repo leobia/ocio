@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import type { Engagement } from '~/types'
+import type { Engagement, EngagementMessage } from '~/types'
 import { dossierSections, replaceSection } from '~/utils/dossierSections'
 definePageMeta({ key: route => String(route.params.id) })
 const api = useOcioApi()
 const route = useRoute()
 const engagement = ref<Engagement | null>(null)
+const evidenceMessages = ref<EngagementMessage[]>([])
+const activeTab = ref<'dossier' | 'evidence'>('dossier')
 const markdown = ref('')
 const loading = ref(true)
 const saving = ref(false)
@@ -36,10 +38,31 @@ function accept(result: Engagement) {
 async function load() {
   loading.value = true
   error.value = ''
-  try { accept(await api.getEngagement(String(route.params.id))) }
+  try {
+    const id = String(route.params.id)
+    const [result, messages] = await Promise.all([api.getEngagement(id), api.getEngagementMessages(id)])
+    accept(result)
+    evidenceMessages.value = messages
+  }
   catch (reason) { error.value = (reason as Error).message }
   finally { loading.value = false }
 }
+function onEvidenceSent(message: EngagementMessage) {
+  evidenceMessages.value = [...evidenceMessages.value, message]
+}
+async function linkEvidence(observationId: string, target: string | null) {
+  if (!engagement.value) return
+  error.value = ''
+  try {
+    await api.linkObservation(engagement.value.id, observationId, target)
+    for (const message of evidenceMessages.value) {
+      const item = message.observations.find(observation => observation.id === observationId)
+      if (item) item.section = target
+    }
+  }
+  catch (reason) { error.value = (reason as Error).message }
+}
+const linkedEvidence = computed(() => evidenceMessages.value.flatMap(message => message.observations.filter(item => item.section === section.value.title).map(item => ({ ...item, message }))))
 async function save() {
   if (!engagement.value || !dirty.value || saving.value) return
   saving.value = true
@@ -73,7 +96,7 @@ onMounted(load)
 
 <template>
   <AppShell section="Fascicolo" back>
-    <template #actions><UButton v-if="engagement" :loading="saving" :disabled="!dirty || saving" @click="save">Salva fascicolo</UButton></template>
+    <template #actions><UButton v-if="engagement && activeTab === 'dossier'" :loading="saving" :disabled="!dirty || saving" @click="save">Salva fascicolo</UButton></template>
     <div class="space-y-6 p-4 sm:p-6">
       <UAlert v-if="error" role="alert" color="error" :title="error" :actions="!engagement ? [{ label: 'Riprova', onClick: load }] : []" />
       <p v-if="loading" role="status">Caricamento fascicolo…</p>
@@ -83,6 +106,9 @@ onMounted(load)
           <div><h2 class="text-2xl font-semibold">{{ engagement.company }}</h2><p class="mt-1 text-sm text-muted">{{ engagement.site }} · {{ engagement.template.name }} · revisione {{ engagement.template_revision.number }}</p></div>
           <UButton color="neutral" variant="outline" :aria-expanded="showDetails" @click="showDetails = !showDetails">{{ showDetails ? 'Chiudi dettagli' : 'Dettagli incarico' }}</UButton>
         </header>
+        <nav class="flex gap-2 border-b pb-3" aria-label="Aree dell'incarico"><UButton :color="activeTab === 'dossier' ? 'primary' : 'neutral'" :variant="activeTab === 'dossier' ? 'solid' : 'outline'" @click="activeTab = 'dossier'">Fascicolo</UButton><UButton :color="activeTab === 'evidence' ? 'primary' : 'neutral'" :variant="activeTab === 'evidence' ? 'solid' : 'outline'" @click="activeTab = 'evidence'">Chat e materiali</UButton></nav>
+        <EngagementEvidence v-if="activeTab === 'evidence'" :engagement-id="engagement.id" :messages="evidenceMessages" :sections="sections.filter(item => item.title !== 'Introduzione').map(item => item.title)" @sent="onEvidenceSent" @link="linkEvidence" />
+        <template v-if="activeTab === 'dossier'">
         <UAlert v-if="engagement.pending_migration" color="warning" variant="subtle" :title="`Revisione ${engagement.pending_migration.target_revision} disponibile`" description="Il fascicolo resta sulla revisione corrente finché non applichi la proposta.">
           <template #actions><UButton color="warning" variant="outline" :disabled="saving" @click="reviewing = !reviewing">{{ reviewing ? 'Chiudi confronto' : 'Confronta proposta' }}</UButton></template>
         </UAlert>
@@ -100,6 +126,10 @@ onMounted(load)
               </template>
               <UFormField v-else label="Fascicolo Markdown"><UTextarea v-model="markdown" :rows="26" :disabled="saving" class="w-full font-mono" /></UFormField>
             </div>
+            <UCard v-if="linkedEvidence.length" class="mt-4">
+              <template #header><h3 class="font-semibold">Evidenze collegate a questa sezione</h3></template>
+              <div class="space-y-3 text-sm"><div v-for="item in linkedEvidence" :key="item.id" class="border-b pb-2"><strong>{{ item.information }}</strong><p class="whitespace-pre-wrap">{{ item.text }}</p><p class="text-xs text-muted">{{ item.status.replaceAll('_', ' ') }} · {{ item.position || 'Appunto' }} · {{ item.method }}</p><a v-if="item.attachment_id" class="underline" :href="api.attachmentUrl(engagement.id, item.attachment_id)">Apri originale</a><UButton v-else variant="link" size="xs" @click="activeTab = 'evidence'">Apri messaggio</UButton></div></div>
+            </UCard>
           </section>
           <aside v-if="showDetails" class="min-w-0 space-y-5">
             <UCard>
@@ -127,6 +157,7 @@ onMounted(load)
           <template #header><h2 class="font-semibold">Cronologia</h2></template>
           <div class="space-y-4"><details v-for="version in engagement.history" :key="version.id"><summary class="cursor-pointer">Versione {{ version.number }} · {{ version.reason.replaceAll('_', ' ') }} · {{ new Date(version.created_at).toLocaleString('it-IT') }}</summary><pre class="mt-4 max-h-96 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-muted p-4 text-sm">{{ version.dossier_markdown }}</pre></details></div>
         </UCard>
+        </template>
       </template>
     </div>
   </AppShell>

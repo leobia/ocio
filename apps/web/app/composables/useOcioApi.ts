@@ -1,6 +1,6 @@
 import type {
   Answer, CaseFact, Conversation, ConversationSummary, DossierTemplate,
-  DossierTemplateRevision, Engagement, EngagementSummary,
+  DossierTemplateRevision, Engagement, EngagementMessage, EngagementSummary,
 } from '~/types'
 
 interface ApiErrorBody {
@@ -46,6 +46,14 @@ export function useOcioApi() {
       '/engagements', { method: 'POST', body },
     ),
     getEngagement: (id: string) => request<Engagement>(`/engagements/${id}`),
+    getEngagementMessages: (id: string) => request<EngagementMessage[]>(`/engagements/${id}/messages`),
+    sendEngagementMessage: (id: string, body: FormData) => request<EngagementMessage>(
+      `/engagements/${id}/messages`, { method: 'POST', body },
+    ),
+    linkObservation: (id: string, observationId: string, section: string | null) => request<{ section: string | null }>(
+      `/engagements/${id}/observations/${observationId}`, { method: 'PATCH', body: { section } },
+    ),
+    attachmentUrl: (id: string, attachmentId: string) => `/api/v1/engagements/${id}/attachments/${attachmentId}`,
     updateDossier: (id: string, markdown: string) => request<Engagement>(
       `/engagements/${id}/dossier`, { method: 'PATCH', body: { markdown } },
     ),

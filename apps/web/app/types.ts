@@ -121,3 +121,34 @@ export interface Engagement {
   history: DossierHistory[]
   pending_migration: DossierMigration | null
 }
+
+export interface EngagementAttachment {
+  id: string
+  name: string
+  media_type: string
+  instruction: string
+  size: number
+  status: 'in_attesa' | 'analizzato' | 'errore'
+  error: string | null
+}
+
+export interface EngagementObservation {
+  id: string
+  attachment_id: string | null
+  section: string | null
+  information: string
+  status: 'osservato' | 'non_leggibile' | 'non_determinabile'
+  text: string
+  position: string | null
+  instruction: string
+  method: string
+  version: string
+}
+
+export interface EngagementMessage {
+  id: string
+  content: string
+  created_at: string
+  attachments: EngagementAttachment[]
+  observations: EngagementObservation[]
+}

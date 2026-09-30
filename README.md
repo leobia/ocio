@@ -153,6 +153,11 @@ all'indirizzo interno della API: il browser comunica soltanto con il proxy Nuxt.
 
 - `/`: assistente con cronologia, fonti e dati del caso.
 - `/incarichi`: elenco, creazione e fascicoli con cronologia delle versioni.
+- Nel fascicolo, **Chat e materiali** conserva appunti e fino a cinque allegati per
+  messaggio (JPEG, PNG, WebP, PDF o testo, massimo 10 MB ciascuno). Le osservazioni
+  possono essere collegate alle sezioni; un'analisi fallita conserva l'originale.
+  L'analisi di foto e documenti richiede `OPENAI_API_KEY` e usa
+  `OCIO_EVIDENCE_MODEL` (predefinito `gpt-4.1-mini`).
 - `/modelli`: sezioni, contenuto iniziale e indicazioni per l’agente. Ogni modifica
   salvata crea una revisione; gli incarichi esistenti la adottano solo applicando
   la proposta di migrazione dopo il confronto.
