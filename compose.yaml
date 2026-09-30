@@ -1,8 +1,8 @@
 services:
   db:
     build:
-      context: .
-      dockerfile: infra/postgres/Dockerfile
+      context: infra/postgres
+      dockerfile: Dockerfile
     command: postgres -c shared_preload_libraries=pg_textsearch
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-ocio}
