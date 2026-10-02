@@ -86,3 +86,25 @@ def test_sdk_budget_stops_and_tool_errors_are_recoverable(monkeypatch):
     monkeypatch.setattr(Runner, 'run', inspect)
     asyncio.run(DossierAgentService(Store(), None)._run_sdk(uuid4(), 'gpt-4.1', 'Test', {'engagement': {'id': str(uuid4())}}))
     assert events[-1][0] == 'model_usage'
+
+
+@pytest.mark.integration
+def test_release_gate_rejects_stale_or_unreviewed_reports(case_db, tmp_path):
+    from ocio.dossier_evaluation import dataset_fingerprint, validate_release
+    from ocio.quality import current_versions
+    data = load_cases(DATASET)
+    report = {'dataset_sha256': dataset_fingerprint(DATASET, data, []), 'passed': True, 'cases': [
+        {'id': c['id'], 'errors': [], 'versions': {**current_versions(), 'model': 'gpt-4.1'}, 'editorial_review': {}}
+        for c in data['cases']
+    ]}
+    path = tmp_path / 'report.json'
+    path.write_text(json.dumps(report))
+    errors = validate_release(DATASET, path, case_db)
+    assert any('RSPP' in e for e in errors)
+    assert any('editoriale incompleta' in e for e in errors)
+    report['dataset_sha256'] = 'outdated'
+    report['cases'][0]['versions']['tools'] = 'outdated'
+    path.write_text(json.dumps(report))
+    errors = validate_release(DATASET, path, case_db)
+    assert any('riesegui' in e for e in errors)
+    assert any('codice corrente' in e for e in errors)

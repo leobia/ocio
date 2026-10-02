@@ -185,6 +185,7 @@ onMounted(load)
               </template>
               <UFormField v-else label="Fascicolo Markdown"><UTextarea v-model="markdown" :rows="26" :disabled="saving || runningAgent" class="w-full font-mono" /></UFormField>
             </div>
+            <QualitySignal :engagement="engagement" :section="section.title" :disabled="dirty || saving || runningAgent" />
             <DossierReview :engagement="engagement" :section="section.title" :body="sectionBody" :disabled="dirty || runningAgent || saving" @changed="refresh" />
             <UCard v-if="linkedEvidence.length" class="mt-4">
               <template #header><h3 class="font-semibold">Evidenze collegate a questa sezione</h3></template>

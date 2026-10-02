@@ -101,6 +101,9 @@ def main() -> int:
     dossier_evaluation.add_argument('dataset', type=Path)
     dossier_evaluation.add_argument('--output', type=Path, required=True)
     dossier_evaluation.add_argument('--baseline', type=Path)
+    release_check = commands.add_parser('verifica-rilascio-fascicolo', help='Verifica regressioni e revisione RSPP prima del rilascio')
+    release_check.add_argument('dataset', type=Path)
+    release_check.add_argument('report', type=Path)
     args = parser.parse_args()
     if args.command == "importa-corpus":
         try:
@@ -186,4 +189,17 @@ def main() -> int:
         print(f"Report: {args.output}; validazione RSPP pendente: {report['human_validation_pending']}")
         if not report['passed']:
             return 1
+    elif args.command == 'verifica-rilascio-fascicolo':
+        from sqlalchemy import create_engine
+
+        from ocio.database import database_url
+        from ocio.dossier_evaluation import validate_release
+        engine = create_engine(database_url())
+        try:
+            errors = validate_release(args.dataset, args.report, engine)
+        finally:
+            engine.dispose()
+        if errors:
+            parser.exit(1, '\n'.join(errors) + '\n')
+        print('Regressioni e valutazioni editoriali verificate.')
     return 0

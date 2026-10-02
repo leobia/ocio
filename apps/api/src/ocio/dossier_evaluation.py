@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import os
 import re
 from pathlib import Path
 from typing import Any
@@ -17,6 +18,7 @@ from ocio.database import database_url
 from ocio.dossier_agent import MAX_TOKENS, DossierAgentService, PostgresAgentStore
 from ocio.dossier_prompt import PROMPT_VERSION
 from ocio.engagement_evidence import OpenAIEvidenceAnalyzer, PostgresEvidenceStore
+from ocio.quality import QualityStore, current_versions
 
 ROOT = Path(__file__).resolve().parents[4]
 
@@ -91,19 +93,14 @@ def run_dossier_evaluation(dataset: Path, output: Path, baseline: Path | None = 
                            engine: Engine | None = None, runner: Any = None,
                            analyzer: Any = None, knowledge: Any = None) -> dict[str, Any]:
     data = load_cases(dataset)
-    dataset_hash = hashlib.sha256(dataset.read_bytes())
-    for name in sorted({name for case in data['cases'] for name in case.get('attachments', []) + case.get('followup_attachments', [])}):
-        asset = (dataset.parent / name).resolve()
-        if not asset.is_relative_to(dataset.parent.resolve()):
-            raise ValueError('Allegato esterno al dataset.')
-        dataset_hash.update(name.encode())
-        dataset_hash.update(asset.read_bytes())
-    fingerprint = dataset_hash.hexdigest()
+    owned_engine = engine is None
+    engine = engine or create_engine(database_url())
+    promoted = QualityStore(engine).promoted()
+    data['cases'].extend(promoted)
+    fingerprint = dataset_fingerprint(dataset, data, promoted)
     previous = json.loads(baseline.read_text()) if baseline else None
     if previous and previous['dataset_sha256'] != fingerprint:
         raise ValueError('Baseline e risultato usano dataset diversi.')
-    owned_engine = engine is None
-    engine = engine or create_engine(database_url())
     store = PostgresStore(engine)
     evidence = PostgresEvidenceStore(engine)
     agent_store = PostgresAgentStore(engine)
@@ -151,7 +148,7 @@ def run_dossier_evaluation(dataset: Path, output: Path, baseline: Path | None = 
                     source_ids.extend(o['id'] for o in message['observations'])
             result = {'id': case['id'], 'engagement_id': str(case_id), 'markdown': snapshot['dossier_markdown'],
                       'relevance': snapshot['relevance'], 'runs': runs, 'source_ids': source_ids,
-                      'versions': {'model': runs[-1]['model'], 'prompt': PROMPT_VERSION,
+                      'versions': {**current_versions(), 'model': runs[-1]['model'], 'prompt': PROMPT_VERSION,
                                    'tools': digest(Path(__file__).with_name('dossier_agent.py')),
                                    'corpus': digest(ROOT / 'ocio_sources.yaml'),
                                    'template': hashlib.sha256(json.dumps({k: case.get(k) for k in ('template', 'descriptions', 'relevance_guidance')}, sort_keys=True).encode()).hexdigest()},
@@ -171,3 +168,42 @@ def run_dossier_evaluation(dataset: Path, output: Path, baseline: Path | None = 
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(report, ensure_ascii=False, default=str, indent=2) + '\n')
     return report
+
+
+def dataset_fingerprint(dataset: Path, data: dict[str, Any], promoted: list[dict[str, Any]]) -> str:
+    dataset_hash = hashlib.sha256(dataset.read_bytes())
+    for name in sorted({name for case in data['cases'] for name in case.get('attachments', []) + case.get('followup_attachments', [])}):
+        asset = (dataset.parent / name).resolve()
+        if not asset.is_relative_to(dataset.parent.resolve()):
+            raise ValueError('Allegato esterno al dataset.')
+        dataset_hash.update(name.encode())
+        dataset_hash.update(asset.read_bytes())
+    dataset_hash.update(json.dumps(promoted, ensure_ascii=False, sort_keys=True).encode())
+    return dataset_hash.hexdigest()
+
+
+def validate_release(dataset: Path, report_path: Path, engine: Engine) -> list[str]:
+    report = json.loads(report_path.read_text())
+    data = load_cases(dataset)
+    promoted = QualityStore(engine).promoted()
+    data['cases'].extend(promoted)
+    errors = []
+    if report.get('dataset_sha256') != dataset_fingerprint(dataset, data, promoted):
+        errors.append('Dataset o regressioni promosse cambiati: riesegui la suite.')
+    if not report.get('passed') or any(c.get('errors') for c in report.get('cases', [])):
+        errors.append('Gli invarianti deterministici non passano.')
+    if {c['id'] for c in data['cases']} != {c['id'] for c in report.get('cases', [])}:
+        errors.append('Il report non copre tutti i casi correnti.')
+    for case in data['cases']:
+        if not case.get('reviewed_by'):
+            errors.append(f"{case['id']}: riferimento ancora da validare con un RSPP.")
+    for case in report.get('cases', []):
+        if any(case.get('versions', {}).get(k) != v for k, v in current_versions().items()):
+            errors.append(f"{case['id']}: prompt, tool o corpus diversi dal codice corrente.")
+        if case.get('versions', {}).get('model') != os.environ.get('OCIO_DOSSIER_MODEL', 'gpt-4.1'):
+            errors.append(f"{case['id']}: modello diverso dalla configurazione corrente.")
+        review = case.get('editorial_review', {})
+        scores = review.get('scores')
+        if not review.get('reviewed_by') or not isinstance(scores, dict) or set(scores) != set(data.get('rubric', [])) or not all(isinstance(v, int) and 1 <= v <= 5 for v in scores.values()):
+            errors.append(f"{case['id']}: valutazione editoriale incompleta.")
+    return errors

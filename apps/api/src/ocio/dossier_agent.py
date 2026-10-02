@@ -51,7 +51,7 @@ class PostgresAgentStore:
         with self.engine.connect() as connection:
             row = connection.execute(text(
                 "SELECT i.id, i.azienda, i.sede, i.data_riferimento, i.fascicolo_markdown, "
-                "i.versione_stato, i.stato, r.id AS revisione_id, r.schema_markdown, "
+                "i.versione_stato, i.stato, i.sezioni_protette, r.id AS revisione_id, r.schema_markdown, "
                 "r.indicazioni, r.pertinenza FROM incarichi i JOIN revisioni_modello_fascicolo r "
                 "ON r.id = i.revisione_modello_id WHERE i.id = :id"
             ), {"id": engagement_id}).mappings().one_or_none()
@@ -70,7 +70,13 @@ class PostgresAgentStore:
                 "JOIN ricerche_azienda r ON r.id = p.ricerca_id WHERE r.incarico_id = :id "
                 "AND p.stato IN ('confermata', 'corretta') ORDER BY p.decisa_il"
             ), {"id": engagement_id}).mappings().all()
+            proposals = connection.execute(text(
+                "SELECT sezione, proposto, stato FROM proposte_sezione WHERE incarico_id = :id "
+                "AND stato IN ('proposta', 'bozza') ORDER BY creata_il"
+            ), {"id": engagement_id}).mappings().all()
             return {
+                "protected_sections": row["sezioni_protette"],
+                "section_proposals": [{"section": p["sezione"], "body": p["proposto"], "status": p["stato"]} for p in proposals],
                 "public_identity": [{"id": "web:" + str(p["id"]), "field": p["campo"], "value": p["valore_confermato"],
                                      "url": p["url"], "consulted_at": str(p["consultata_il"])} for p in public_data],
                 "id": str(row["id"]), "company": row["azienda"], "site": row["sede"],
@@ -415,7 +421,7 @@ class DossierAgentService:
             payload = {"engagement": {key: snapshot[key] for key in (
                 "id", "company", "site", "reference_date", "dossier_markdown", "version",
                 "status", "relevance", "relevance_guidance", "template_revision_id",
-                "proposed_facts", "public_identity")},
+                "proposed_facts", "public_identity", "protected_sections", "section_proposals")},
                 "template": json.loads(context.template), "messages": messages,
                 "engagement_source_references": {
                     "company": "incarico:azienda", "site": "incarico:sede",
@@ -468,7 +474,12 @@ class DossierAgentService:
 
         def apply(kind: str, operation_id: str, expected_version: int,
                   data: dict[str, Any]) -> str:
-            result = self.store.effect(run_id, UUID(operation_id), expected_version, kind, data)
+            try:
+                result = self.store.effect(run_id, UUID(operation_id), expected_version, kind, data)
+            except Exception as error:
+                self.store.event(run_id, "tool_error", {"tool": kind, "operation_id": operation_id,
+                                                       "error_type": type(error).__name__})
+                raise
             return json.dumps(result, ensure_ascii=False)
 
         @function_tool
@@ -506,6 +517,7 @@ class DossierAgentService:
                 return "Sezione inesistente."
             result = {"section": section, "body": blocks[section],
                       "relevance": current["relevance"].get(section),
+                      "pending_proposals": [p for p in current["section_proposals"] if p["section"] == section],
                       "proposed_facts": [item for item in current["proposed_facts"]
                                          if item["section"] == section]}
             self.store.event(run_id, "check_section", result)

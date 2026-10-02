@@ -182,3 +182,14 @@ conservati nel database per ispezione. Richiede migrazioni aggiornate e chiavi p
 Gli invarianti producono errori leggibili; riferimenti e rubrica editoriale restano
 separati. `reviewed_by: null` indica esempi ancora da validare con un RSPP.
 Le verifiche automatiche non attestano la correttezza professionale del fascicolo.
+
+L’inbox `/qualita` raccoglie decisioni e segnalazioni; il responsabile può scartare,
+correggere solo l’incarico o promuovere un caso riscritto con dati fittizi.
+La riapertura revoca la promozione e conserva l’audit. Le fonti normative nuove
+continuano a passare dal registro e dalla pipeline del corpus.
+
+`valuta-fascicolo` include le regressioni attualmente promosse. Prima di rilasciare
+modifiche all’agente, esegui `ocio verifica-rilascio-fascicolo <dataset> <report>`:
+il controllo richiede invarianti superati, versioni correnti e valutazioni RSPP
+registrate nel report. L’autore è dichiarato dall’operatore nell’alpha locale;
+autenticazione e controllo degli accessi restano nella #21.

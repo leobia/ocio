@@ -35,6 +35,7 @@ from ocio.engagement_evidence import (
     OpenAIEvidenceAnalyzer,
     PostgresEvidenceStore,
 )
+from ocio.quality import quality_router
 
 LOGGER = logging.getLogger("ocio.api")
 
@@ -866,6 +867,7 @@ def create_app(
     if isinstance(selected_store, PostgresStore):
         app.include_router(review_router(selected_store.engine))
         app.include_router(company_router(selected_store.engine))
+        app.include_router(quality_router(selected_store.engine))
 
     @app.middleware("http")
     async def request_id_middleware(request: Request, call_next: Any) -> Any:

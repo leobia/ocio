@@ -113,6 +113,9 @@ class ReviewStore:
             "AND p.stato IN ('confermata', 'corretta')"
         ), {"id": engagement_id}).mappings():
             result.append({"id": "web:" + str(row['id']), "text": row['valore_confermato'], "url": row['url']})
+        identity = c.execute(text("SELECT azienda, sede, data_riferimento FROM incarichi WHERE id = :id"), {"id": engagement_id}).mappings().one_or_none()
+        if identity:
+            result.extend({"id": "incarico:" + key, "text": str(value), "url": f"/api/v1/engagements/{engagement_id}"} for key, value in identity.items())
         return list({item['id']: item for item in result}.values())
 
     def decide(self, engagement_id: UUID, proposal_id: UUID, value: DecisionInput) -> None:
@@ -172,6 +175,7 @@ class ReviewStore:
                 raise HTTPException(409, "Rivedi le proposte sul testo protetto prima di approvare.")
             decisions = [dict(item) for item in c.execute(text("SELECT sezione, stato, motivo, riferimenti FROM pertinenza_sezioni WHERE incarico_id = :id"), {"id": engagement_id}).mappings()]
             runs = [dict(item) for item in c.execute(text("SELECT id, modello, versione_prompt, revisione_modello_id, domande FROM run_fascicolo WHERE incarico_id = :id ORDER BY creato_il"), {"id": engagement_id}).mappings()]
+            decisions = [item for item in decisions if item['sezione'] in section_titles(row['fascicolo_markdown'])]
             excluded = {item['sezione'] for item in decisions if item['stato'] == 'non_pertinente'}
             markdown = exportable_dossier(row['fascicolo_markdown'], excluded)
             markdown += '\n\n## Elementi da verificare\n\n'
@@ -190,6 +194,7 @@ class ReviewStore:
             metadata = {"author": value.author, "reason": value.reason, "approved_at": now,
                         "template_revision_id": str(row['revisione_modello_id']), "runs": runs, "relevance": decisions, "sources": cited}
             markdown += f"\n\nApprovato da {value.author} il {now}. Revisione {revision_id}. Modello fascicolo {row['revisione_modello_id']}.\n"
+            markdown += '\n'.join(f"Run {run['id']}: {run['modello']}, prompt {run['versione_prompt']}." for run in runs) + '\n'
             c.execute(text("INSERT INTO approvazioni_fascicolo (id, incarico_id, revisione_id, autore, markdown, contesto) VALUES (:id, :case, :revision, :author, :markdown, CAST(:context AS jsonb))"),
                       {"id": identifier, "case": engagement_id, "revision": revision_id, "author": value.author, "markdown": markdown, "context": json.dumps(metadata, default=str, ensure_ascii=False)})
             protect_sections(c, engagement_id, list(section_titles(row['fascicolo_markdown'])))

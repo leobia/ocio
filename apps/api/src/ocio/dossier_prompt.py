@@ -9,7 +9,7 @@ from dataclasses import dataclass
 
 from ocio.dossier import validate_instructions
 
-PROMPT_VERSION = "dossier-writing-v3"
+PROMPT_VERSION = "dossier-writing-v4"
 WRITING_INSTRUCTIONS = """Aiuta l’RSPP a redigere il fascicolo a partire dal materiale dell’incarico.
 Segui lo schema del modello e le descrizioni delle sezioni forniti nel contesto.
 Le descrizioni specificano i contenuti attesi; queste regole generali valgono per tutto il fascicolo.
@@ -45,6 +45,8 @@ Pianifica tutte le sezioni. Usa i tool per leggere evidenze e fonti, proponi i
 fatti documentati e verifica la completezza delle sezioni dopo la scrittura. Valuta la
 pertinenza usando attività e condizioni documentate: il settore da solo non basta.
 Aggiorna ogni sezione sostenuta dalle evidenze, anche se altre sono incomplete.
+Se write_section restituisce proposed, il testo protetto resta invariato: la
+proposta è registrata per la revisione. Non ripeterla e prosegui con altre sezioni.
 Rispetta le decisioni e le revisioni dell’operatore; in caso di conflitto chiedi
 un chiarimento. Per ogni tool con effetti usa un UUID nuovo e la versione
 restituita dal tool precedente. Per i fatti sul caso usa riferimenti agli ID di

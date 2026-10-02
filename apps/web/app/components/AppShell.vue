@@ -3,6 +3,7 @@ defineProps<{ section: string, back?: boolean }>()
 const route = useRoute()
 const links = computed(() => [
   { label: 'Incarichi', icon: 'i-lucide-briefcase-business', to: '/incarichi', active: route.path.startsWith('/incarichi') },
+  { label: 'Qualità', to: '/qualita', icon: 'i-lucide-check' },
   { label: 'Modelli', icon: 'i-lucide-files', to: '/modelli', active: route.path === '/modelli' },
   { label: 'Assistente', icon: 'i-lucide-message-square-text', to: '/', active: route.path === '/' },
 ])
