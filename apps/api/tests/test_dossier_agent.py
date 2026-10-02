@@ -82,6 +82,7 @@ def test_agent_waits_and_resumes_without_duplicating_effects() -> None:
                 ), {"id": existing_id, "revision": DEFAULT_REVISION})
                 runpy.run_path(str(VERSIONS / "20260930_02_dossier_agent.py"))["upgrade"]()
                 runpy.run_path(str(VERSIONS / "20261002_01_dossier_review.py"))["upgrade"]()
+                runpy.run_path(str(VERSIONS / "20261002_02_company_research.py"))["upgrade"]()
                 assert connection.execute(text(
                     "SELECT stato FROM pertinenza_sezioni WHERE incarico_id = :id "
                     "AND sezione = 'Sezione preesistente'"

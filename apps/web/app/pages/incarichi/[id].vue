@@ -37,6 +37,9 @@ function accept(result: Engagement) {
   activeSection.value = previous >= 0 ? previous : sections.value.length > 1 && sections.value[0]?.title === 'Introduzione' ? 1 : 0
   editorVersion.value++
 }
+async function refresh() {
+  if (engagement.value) accept(await api.getEngagement(engagement.value.id))
+}
 async function load() {
   loading.value = true
   error.value = ''
@@ -155,6 +158,7 @@ onMounted(load)
               <p v-if="agentRun?.status === 'fallito'" role="alert" class="mt-2 text-sm text-error">{{ agentRun.reason }}</p>
               <template #footer><UButton :loading="runningAgent" :disabled="runningAgent || dirty || saving" @click="runAgent">{{ agentRun ? 'Continua compilazione' : 'Avvia compilazione' }}</UButton></template>
             </UCard>
+            <CompanyResearch :engagement="engagement" :disabled="dirty || saving || runningAgent" @changed="refresh" />
             <EngagementEvidence :engagement-id="engagement.id" :messages="evidenceMessages" :sections="sections.filter(item => item.title !== 'Introduzione').map(item => item.title)" @sent="onEvidenceSent" @link="linkEvidence" />
           </div>
           <div class="min-w-0 space-y-5">
@@ -181,7 +185,7 @@ onMounted(load)
               </template>
               <UFormField v-else label="Fascicolo Markdown"><UTextarea v-model="markdown" :rows="26" :disabled="saving || runningAgent" class="w-full font-mono" /></UFormField>
             </div>
-            <DossierReview :engagement="engagement" :section="section.title" :body="sectionBody" :disabled="dirty || runningAgent || saving" @changed="load" />
+            <DossierReview :engagement="engagement" :section="section.title" :body="sectionBody" :disabled="dirty || runningAgent || saving" @changed="refresh" />
             <UCard v-if="linkedEvidence.length" class="mt-4">
               <template #header><h3 class="font-semibold">Evidenze collegate a questa sezione</h3></template>
               <div class="space-y-3 text-sm"><div v-for="item in linkedEvidence" :key="item.id" class="border-b pb-2"><strong>{{ item.information }}</strong><p class="whitespace-pre-wrap">{{ item.text }}</p><p class="text-xs text-muted">{{ item.status.replaceAll('_', ' ') }} · {{ item.position || 'Appunto' }} · {{ item.method }}</p><a v-if="item.attachment_id" class="underline" :href="api.attachmentUrl(engagement.id, item.attachment_id)">Apri originale</a><span v-else class="text-muted">Messaggio nella chat</span></div></div>

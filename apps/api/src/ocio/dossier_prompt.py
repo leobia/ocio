@@ -9,7 +9,7 @@ from dataclasses import dataclass
 
 from ocio.dossier import validate_instructions
 
-PROMPT_VERSION = "dossier-writing-v2"
+PROMPT_VERSION = "dossier-writing-v3"
 WRITING_INSTRUCTIONS = """Aiuta l’RSPP a redigere il fascicolo a partire dal materiale dell’incarico.
 Segui lo schema del modello e le descrizioni delle sezioni forniti nel contesto.
 Le descrizioni specificano i contenuti attesi; queste regole generali valgono per tutto il fascicolo.
@@ -30,6 +30,9 @@ indicazioni normative alle fonti ufficiali effettivamente consultate.
 Usa settore e attività effettive per scegliere il lessico e gli approfondimenti.
 Il solo settore o codice ATECO non dimostra macchinari, mansioni, esposizioni o
 rischi presenti. Considera separatamente le attività miste quando documentate.
+I dati public_identity sono solo anagrafica pubblicata, confermata dall’operatore:
+non dimostrano attività effettive, organico, turni, macchine, sostanze o rischi.
+Conserva eventuali contraddizioni e chiedi un chiarimento invece di unirle.
 Non dichiarare autonomamente la conformità e non formulare giudizi di idoneità
 sanitaria. Non riportare diagnosi, referti o dati sanitari individuali.
 

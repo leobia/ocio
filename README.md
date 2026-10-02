@@ -158,6 +158,11 @@ all'indirizzo interno della API: il browser comunica soltanto con il proxy Nuxt.
   possono essere collegate alle sezioni; un'analisi fallita conserva l'originale.
   L'analisi di foto e documenti richiede `OPENAI_API_KEY` e usa
   `OCIO_EVIDENCE_MODEL` (predefinito `gpt-4.1-mini`).
+- Nel fascicolo, **Revisione e approvazione** protegge il testo manuale e approvato,
+  conserva le decisioni sulle proposte e permette di esportare una revisione immutabile.
+- **Dati aziendali pubblici** ricerca l’impresa dopo conferma dell’identità; ogni dato
+  richiede revisione. Usa `OPENAI_API_KEY` e `OCIO_COMPANY_RESEARCH_MODEL`
+  (predefinito `gpt-4.1`). Gli errori non impediscono il lavoro sul fascicolo.
 - `/modelli`: sezioni, contenuto iniziale e indicazioni per l’agente. Ogni modifica
   salvata crea una revisione; gli incarichi esistenti la adottano solo applicando
   la proposta di migrazione dopo il confronto.

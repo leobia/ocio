@@ -65,7 +65,14 @@ class PostgresAgentStore:
                 "SELECT id, sezione, testo, riferimenti FROM fatti_proposti_incarico "
                 "WHERE incarico_id = :id ORDER BY creato_il, id"
             ), {"id": engagement_id}).mappings().all()
+            public_data = connection.execute(text(
+                "SELECT p.id, p.campo, p.valore_confermato, p.url, p.consultata_il FROM proposte_anagrafica p "
+                "JOIN ricerche_azienda r ON r.id = p.ricerca_id WHERE r.incarico_id = :id "
+                "AND p.stato IN ('confermata', 'corretta') ORDER BY p.decisa_il"
+            ), {"id": engagement_id}).mappings().all()
             return {
+                "public_identity": [{"id": "web:" + str(p["id"]), "field": p["campo"], "value": p["valore_confermato"],
+                                     "url": p["url"], "consulted_at": str(p["consultata_il"])} for p in public_data],
                 "id": str(row["id"]), "company": row["azienda"], "site": row["sede"],
                 "reference_date": str(row["data_riferimento"]),
                 "dossier_markdown": row["fascicolo_markdown"],
@@ -153,6 +160,11 @@ class PostgresAgentStore:
                     "JOIN messaggi_incarico m ON m.id = o.messaggio_id "
                     "WHERE m.incarico_id = :id AND o.esito = 'osservato'"
                 ), {"id": engagement_id}).all()}
+                public_ids: list[UUID] = list(connection.execute(text(
+                    "SELECT p.id FROM proposte_anagrafica p JOIN ricerche_azienda r ON r.id = p.ricerca_id "
+                    "WHERE r.incarico_id = :id AND p.stato IN ('confermata', 'corretta')"
+                ), {"id": engagement_id}).scalars())
+                known.update("web:" + str(identifier) for identifier in public_ids)
                 known.update({"incarico:azienda", "incarico:sede", "incarico:data_riferimento"})
                 searches: Sequence[Mapping[str, Any]] = connection.execute(text(
                     "SELECT dati FROM eventi_run_fascicolo WHERE run_id = :run "
@@ -403,7 +415,7 @@ class DossierAgentService:
             payload = {"engagement": {key: snapshot[key] for key in (
                 "id", "company", "site", "reference_date", "dossier_markdown", "version",
                 "status", "relevance", "relevance_guidance", "template_revision_id",
-                "proposed_facts")},
+                "proposed_facts", "public_identity")},
                 "template": json.loads(context.template), "messages": messages,
                 "engagement_source_references": {
                     "company": "incarico:azienda", "site": "incarico:sede",

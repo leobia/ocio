@@ -107,6 +107,12 @@ class ReviewStore:
             for citation in data.get('result', {}).get('citations', []):
                 result.append({"id": str(citation['id']), "text": citation.get('passage', ''),
                                "url": next((s.get('url') or s.get('source_url') for s in citation.get('sources', []) if s.get('url') or s.get('source_url')), None)})
+        for row in c.execute(text(
+            "SELECT p.id, p.valore_confermato, p.url FROM proposte_anagrafica p "
+            "JOIN ricerche_azienda r ON r.id = p.ricerca_id WHERE r.incarico_id = :id "
+            "AND p.stato IN ('confermata', 'corretta')"
+        ), {"id": engagement_id}).mappings():
+            result.append({"id": "web:" + str(row['id']), "text": row['valore_confermato'], "url": row['url']})
         return list({item['id']: item for item in result}.values())
 
     def decide(self, engagement_id: UUID, proposal_id: UUID, value: DecisionInput) -> None:

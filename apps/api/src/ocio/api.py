@@ -17,6 +17,7 @@ from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy import Engine, create_engine, text
 
+from ocio.company_research import company_router
 from ocio.database import database_url
 from ocio.dossier import (
     exportable_dossier,
@@ -864,6 +865,7 @@ def create_app(
 
     if isinstance(selected_store, PostgresStore):
         app.include_router(review_router(selected_store.engine))
+        app.include_router(company_router(selected_store.engine))
 
     @app.middleware("http")
     async def request_id_middleware(request: Request, call_next: Any) -> Any:

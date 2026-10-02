@@ -34,6 +34,7 @@ test('modifica una sezione lunga con tabella, conserva le altre e recupera un sa
   let releaseSave!: () => void
   const saveGate = new Promise<void>(resolve => { releaseSave = resolve })
   await page.route('**/api/v1/engagements/**', async route => {
+    if (route.request().url().endsWith('/company-research')) return route.fulfill({ json: [] })
     if (route.request().method() === 'GET') {
       if (route.request().url().endsWith('/messages')) return route.fulfill({ json: [] })
       if (route.request().url().endsWith('/review')) return route.fulfill({ json: { proposals: [], approvals: [], sources: [] } })
@@ -100,6 +101,7 @@ test('modifica una sezione lunga con tabella, conserva le altre e recupera un sa
 test('scrive più paragrafi sotto i titoli vuoti senza bloccare editor e annullamento', async ({ page }) => {
   const markdown = '## Attività\n\n### Fasi operative\n\n### Mansioni\n\n## Ambienti\n\nDa descrivere.\n'
   await page.route('**/api/v1/engagements/**', route => {
+    if (route.request().url().endsWith('/company-research')) return route.fulfill({ json: [] })
     if (route.request().url().endsWith('/messages')) return route.fulfill({ json: [] })
     if (route.request().url().endsWith('/review')) return route.fulfill({ json: { proposals: [], approvals: [], sources: [] } })
     if (route.request().url().endsWith('/agent')) return route.fulfill({ json: null })
@@ -143,6 +145,7 @@ test('mostra chat e bozza, poi riprende dopo una risposta', async ({ page }) => 
   let runs = 0
   await page.route('**/api/v1/engagements/**', (route) => {
     const path = new URL(route.request().url()).pathname
+    if (path.endsWith('/company-research')) return route.fulfill({ json: [] })
     const method = route.request().method()
     if (path.endsWith('/review')) return route.fulfill({ json: { proposals: [], approvals: [], sources: [] } })
     if (path.endsWith('/agent') && method === 'GET') return route.fulfill({ json: lastRun })
@@ -184,6 +187,7 @@ test('revisiona una proposta protetta e rende esportabile la revisione approvata
   const review = { proposals: [{ id: 'p', section: 'Attività', previous: 'Testo manuale.', proposed: 'Descrizione proposta.', references: [], status: 'proposta' }], approvals: [] as { id: string, author: string, created_at: string }[], sources: [] }
   await page.route('**/api/v1/engagements/**', route => {
     const path = new URL(route.request().url()).pathname
+    if (path.endsWith('/company-research')) return route.fulfill({ json: [] })
     if (path.endsWith('/messages')) return route.fulfill({ json: [] })
     if (path.endsWith('/agent')) return route.fulfill({ json: null })
     if (path.endsWith('/review')) return route.fulfill({ json: review })
@@ -212,4 +216,40 @@ test('revisiona una proposta protetta e rende esportabile la revisione approvata
   await page.getByLabel('Motivazione della revisione', { exact: true }).fill('Revisione complessiva')
   await page.getByRole('button', { name: 'Approva revisione complessiva' }).click()
   await expect(page.getByRole('link', { name: 'Esporta Markdown approvato' })).toHaveAttribute('href', `/api/v1/engagements/${id}/approvals/approval/export`)
+})
+
+test('ricerca aziendale richiede identità confermata e revisione dei dati pubblici', async ({ page }) => {
+  const id = '11111111-1111-4111-8111-111111111129'
+  const engagement = { id, company: 'Impresa fittizia', site: 'Roma', reference_date: '2026-10-02', dossier_markdown: '## Attività\n\nDa chiarire.', exportable_markdown: '## Attività\n\nDa chiarire.', status: 'in_corso', version: 0, relevance: {}, relevance_history: [], proposed_facts: [], created_at: '2026-10-02', updated_at: '2026-10-02', template: { id: 't', name: 'Modello' }, template_revision: { id: 'r', number: 1, instructions: {}, relevance_guidance: {} }, history: [], pending_migration: null }
+  const history: Record<string, any>[] = []
+  await page.route('**/api/v1/engagements/**', route => {
+    const path = new URL(route.request().url()).pathname
+    const post = route.request().method() === 'POST'
+    if (path.endsWith('/company-research') && post) {
+      expect(route.request().postDataJSON().confirmed).toBe(true)
+      history.push({ id: 'search', status: 'completata', message: 'Verifica i dati', proposals: [{ id: 'p', field: 'sito_ufficiale', value: 'https://fittizia.example', url: 'https://fittizia.example/contatti', source_type: 'aziendale', consulted_at: '2026-10-02', status: 'da_verificare', confirmed_value: null }] })
+      return route.fulfill({ json: { id: 'search' } })
+    }
+    if (path.endsWith('/company-research/p')) {
+      expect(route.request().postDataJSON().action).toBe('confermata')
+      history[0]!.proposals[0].status = 'confermata'
+      engagement.version++
+      return route.fulfill({ json: { ok: true } })
+    }
+    if (path.endsWith('/company-research')) return route.fulfill({ json: history })
+    if (path.endsWith('/messages')) return route.fulfill({ json: [] })
+    if (path.endsWith('/agent')) return route.fulfill({ json: null })
+    if (path.endsWith('/review')) return route.fulfill({ json: { proposals: [], approvals: [], sources: [] } })
+    return route.fulfill({ json: engagement })
+  })
+  await page.goto(`/incarichi/${id}`)
+  await page.getByText('Dati aziendali pubblici', { exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Cerca dati pubblici' })).toBeDisabled()
+  await page.getByLabel('Identificatore impresa (partita IVA o sito ufficiale)', { exact: true }).fill('fittizia.example')
+  await page.getByLabel('Operatore che verifica l’impresa').fill('RSPP prova')
+  await page.getByRole('checkbox', { name: 'Confermo l’identità di questa impresa' }).check()
+  await page.getByRole('button', { name: 'Cerca dati pubblici' }).click()
+  await expect(page.getByRole('link', { name: 'aziendale: https://fittizia.example/contatti' })).toBeVisible()
+  await page.getByRole('button', { name: 'Conferma dato' }).click()
+  await expect(page.getByRole('button', { name: 'Conferma dato' })).toHaveCount(0)
 })
