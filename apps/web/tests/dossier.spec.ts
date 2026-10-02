@@ -36,6 +36,7 @@ test('modifica una sezione lunga con tabella, conserva le altre e recupera un sa
   await page.route('**/api/v1/engagements/**', async route => {
     if (route.request().method() === 'GET') {
       if (route.request().url().endsWith('/messages')) return route.fulfill({ json: [] })
+      if (route.request().url().endsWith('/review')) return route.fulfill({ json: { proposals: [], approvals: [], sources: [] } })
       if (route.request().url().endsWith('/agent')) return route.fulfill({ json: null })
       return route.fulfill({ json: engagement })
     }
@@ -100,6 +101,7 @@ test('scrive più paragrafi sotto i titoli vuoti senza bloccare editor e annulla
   const markdown = '## Attività\n\n### Fasi operative\n\n### Mansioni\n\n## Ambienti\n\nDa descrivere.\n'
   await page.route('**/api/v1/engagements/**', route => {
     if (route.request().url().endsWith('/messages')) return route.fulfill({ json: [] })
+    if (route.request().url().endsWith('/review')) return route.fulfill({ json: { proposals: [], approvals: [], sources: [] } })
     if (route.request().url().endsWith('/agent')) return route.fulfill({ json: null })
     return route.fulfill({ json: {
     id: 'empty', company: 'Prova sezioni vuote', site: 'Padova', reference_date: '2026-09-29',
@@ -142,6 +144,7 @@ test('mostra chat e bozza, poi riprende dopo una risposta', async ({ page }) => 
   await page.route('**/api/v1/engagements/**', (route) => {
     const path = new URL(route.request().url()).pathname
     const method = route.request().method()
+    if (path.endsWith('/review')) return route.fulfill({ json: { proposals: [], approvals: [], sources: [] } })
     if (path.endsWith('/agent') && method === 'GET') return route.fulfill({ json: lastRun })
     if (path.endsWith('/messages') && method === 'GET') return route.fulfill({ json: messages })
     if (path.endsWith('/messages') && method === 'POST') {
@@ -173,4 +176,40 @@ test('mostra chat e bozza, poi riprende dopo una risposta', async ({ page }) => 
   await page.getByRole('button', { name: "Invia all'incarico" }).click()
   await expect(page.getByRole('textbox', { name: 'Testo: Attività' })).toContainText('La sede è un ufficio.')
   expect(runs).toBe(2)
+})
+
+test('revisiona una proposta protetta e rende esportabile la revisione approvata', async ({ page }) => {
+  const id = '11111111-1111-4111-8111-111111111118'
+  const engagement = { id, company: 'Revisione fittizia', site: 'Roma', reference_date: '2026-10-02', dossier_markdown: '## Attività\n\nTesto manuale.', exportable_markdown: '## Attività\n\nTesto manuale.', status: 'in_corso', version: 1, relevance: {}, relevance_history: [], proposed_facts: [], created_at: '2026-10-02', updated_at: '2026-10-02', template: { id: 't', name: 'Modello' }, template_revision: { id: 'r', number: 1, instructions: {}, relevance_guidance: {} }, history: [], pending_migration: null }
+  const review = { proposals: [{ id: 'p', section: 'Attività', previous: 'Testo manuale.', proposed: 'Descrizione proposta.', references: [], status: 'proposta' }], approvals: [] as { id: string, author: string, created_at: string }[], sources: [] }
+  await page.route('**/api/v1/engagements/**', route => {
+    const path = new URL(route.request().url()).pathname
+    if (path.endsWith('/messages')) return route.fulfill({ json: [] })
+    if (path.endsWith('/agent')) return route.fulfill({ json: null })
+    if (path.endsWith('/review')) return route.fulfill({ json: review })
+    if (path.endsWith('/review/p')) {
+      expect(route.request().postDataJSON().action).toBe('accettata')
+      engagement.dossier_markdown = '## Attività\n\nDescrizione proposta.'
+      engagement.exportable_markdown = engagement.dossier_markdown
+      engagement.version++
+      review.proposals[0]!.status = 'accettata'
+      return route.fulfill({ json: { ok: true } })
+    }
+    if (path.endsWith('/approvals')) {
+      review.approvals.push({ id: 'approval', author: 'RSPP prova', created_at: '2026-10-02' })
+      engagement.version++
+      return route.fulfill({ json: { id: 'approval' } })
+    }
+    return route.fulfill({ json: engagement })
+  })
+  await page.goto(`/incarichi/${id}`)
+  await expect(page.getByText('Proposta sul testo protetto', { exact: true })).toBeVisible()
+  await page.getByLabel('Autore della revisione', { exact: true }).fill('RSPP prova')
+  await page.getByLabel('Motivazione della revisione', { exact: true }).fill('Controllo effettuato')
+  await page.getByRole('button', { name: 'Accetta sezione', exact: true }).click()
+  await expect(page.getByRole('textbox', { name: 'Testo: Attività', exact: true })).toContainText('Descrizione proposta.')
+  await page.getByLabel('Autore della revisione', { exact: true }).fill('RSPP prova')
+  await page.getByLabel('Motivazione della revisione', { exact: true }).fill('Revisione complessiva')
+  await page.getByRole('button', { name: 'Approva revisione complessiva' }).click()
+  await expect(page.getByRole('link', { name: 'Esporta Markdown approvato' })).toHaveAttribute('href', `/api/v1/engagements/${id}/approvals/approval/export`)
 })

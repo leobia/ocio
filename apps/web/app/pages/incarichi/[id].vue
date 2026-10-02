@@ -181,6 +181,7 @@ onMounted(load)
               </template>
               <UFormField v-else label="Fascicolo Markdown"><UTextarea v-model="markdown" :rows="26" :disabled="saving || runningAgent" class="w-full font-mono" /></UFormField>
             </div>
+            <DossierReview :engagement="engagement" :section="section.title" :body="sectionBody" :disabled="dirty || runningAgent || saving" @changed="load" />
             <UCard v-if="linkedEvidence.length" class="mt-4">
               <template #header><h3 class="font-semibold">Evidenze collegate a questa sezione</h3></template>
               <div class="space-y-3 text-sm"><div v-for="item in linkedEvidence" :key="item.id" class="border-b pb-2"><strong>{{ item.information }}</strong><p class="whitespace-pre-wrap">{{ item.text }}</p><p class="text-xs text-muted">{{ item.status.replaceAll('_', ' ') }} · {{ item.position || 'Appunto' }} · {{ item.method }}</p><a v-if="item.attachment_id" class="underline" :href="api.attachmentUrl(engagement.id, item.attachment_id)">Apri originale</a><span v-else class="text-muted">Messaggio nella chat</span></div></div>

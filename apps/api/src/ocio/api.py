@@ -25,6 +25,7 @@ from ocio.dossier import (
     validate_instructions,
 )
 from ocio.dossier_agent import DossierAgentService, PostgresAgentStore, StateConflict
+from ocio.dossier_review import protect_sections, review_router, section_body
 from ocio.engagement_evidence import (
     SUPPORTED,
     EvidenceAnalyzer,
@@ -480,6 +481,10 @@ class PostgresStore:
             ), {"id": engagement_id}).scalar_one_or_none()
             if current is None:
                 return None
+            before = connection.execute(text("SELECT fascicolo_markdown FROM incarichi WHERE id = :id"), {"id": engagement_id}).scalar_one()
+            changed = [title for title in section_titles(markdown)
+                       if title not in section_titles(before) or section_body(before, title) != section_body(markdown, title)]
+            protect_sections(connection, engagement_id, changed)
             connection.execute(text(
                 "UPDATE incarichi SET fascicolo_markdown = :markdown, aggiornato_il = now(), "
                 "versione_stato = versione_stato + 1 "
@@ -856,6 +861,9 @@ def create_app(
                             selected_evidence_store, selected_backend)
         if isinstance(selected_store, PostgresStore) else None
     )
+
+    if isinstance(selected_store, PostgresStore):
+        app.include_router(review_router(selected_store.engine))
 
     @app.middleware("http")
     async def request_id_middleware(request: Request, call_next: Any) -> Any:

@@ -14,6 +14,7 @@ from sqlalchemy import Engine, text
 
 from ocio.dossier import replace_section_body, section_titles
 from ocio.dossier_prompt import PROMPT_VERSION, writing_context
+from ocio.dossier_review import section_body
 
 STATUSES = ("da_valutare", "pertinente", "non_pertinente", "da_chiarire")
 RUN_STATUSES = ("in_corso", "in_attesa", "completato", "fallito")
@@ -127,7 +128,7 @@ class PostgresAgentStore:
             ), {"run": run_id}).mappings().one()
             engagement_id = run["incarico_id"]
             state = connection.execute(text(
-                "SELECT versione_stato, fascicolo_markdown, revisione_modello_id "
+                "SELECT versione_stato, fascicolo_markdown, revisione_modello_id, sezioni_protette "
                 "FROM incarichi WHERE id = :id FOR UPDATE"
             ), {"id": engagement_id}).mappings().one()
             previous = connection.execute(text(
@@ -212,16 +213,36 @@ class PostgresAgentStore:
                     raise ValueError("Testo e riferimenti verificabili sono obbligatori.")
                 if any(reference not in body for reference in references):
                     raise ValueError("Ogni riferimento deve comparire nel testo della sezione.")
-                updated = replace_section_body(state["fascicolo_markdown"], title, body)
-                connection.execute(text(
-                    "UPDATE incarichi SET fascicolo_markdown = :markdown, aggiornato_il = now() WHERE id = :id"
-                ), {"id": engagement_id, "markdown": updated})
-                connection.execute(text(
-                    "INSERT INTO revisioni_fascicolo (id, incarico_id, numero, revisione_modello_id, "
-                    "fascicolo_markdown, motivo) SELECT :revision, :id, COALESCE(max(numero), 0) + 1, "
-                    ":template, :markdown, 'agente' FROM revisioni_fascicolo WHERE incarico_id = :id"
-                ), {"revision": uuid4(), "id": engagement_id,
-                    "template": state["revisione_modello_id"], "markdown": updated})
+                if section_titles(body):
+                    raise ValueError("Il testo non può introdurre altre sezioni.")
+                old_body = section_body(state["fascicolo_markdown"], title)
+                protected = title in state["sezioni_protette"]
+                duplicate = connection.execute(text(
+                    "SELECT 1 FROM proposte_sezione WHERE incarico_id = :id AND sezione = :section "
+                    "AND proposto = :body AND stato IN ('proposta', 'bozza', 'accettata')"
+                ), {"id": engagement_id, "section": title, "body": body}).first()
+                if not duplicate and old_body != body:
+                    connection.execute(text(
+                        "UPDATE proposte_sezione SET stato = 'superata' WHERE incarico_id = :id "
+                        "AND sezione = :section AND stato IN ('proposta', 'bozza')"
+                    ), {"id": engagement_id, "section": title})
+                    connection.execute(text(
+                        "INSERT INTO proposte_sezione (id, incarico_id, run_id, sezione, precedente, proposto, riferimenti, stato) "
+                        "VALUES (:proposal, :id, :run, :section, :previous, :body, CAST(:refs AS jsonb), :status)"
+                    ), {"proposal": uuid4(), "id": engagement_id, "run": run_id, "section": title,
+                        "previous": old_body, "body": body, "refs": json.dumps(references),
+                        "status": "proposta" if protected else "bozza"})
+                    if not protected:
+                        updated = replace_section_body(state["fascicolo_markdown"], title, body)
+                        connection.execute(text(
+                            "UPDATE incarichi SET fascicolo_markdown = :markdown, aggiornato_il = now() WHERE id = :id"
+                        ), {"id": engagement_id, "markdown": updated})
+                        connection.execute(text(
+                            "INSERT INTO revisioni_fascicolo (id, incarico_id, numero, revisione_modello_id, "
+                            "fascicolo_markdown, motivo) SELECT :revision, :id, COALESCE(max(numero), 0) + 1, "
+                            ":template, :markdown, 'agente' FROM revisioni_fascicolo WHERE incarico_id = :id"
+                        ), {"revision": uuid4(), "id": engagement_id,
+                            "template": state["revisione_modello_id"], "markdown": updated})
             elif kind == "question":
                 question = str(payload["question"]).strip()
                 if not question:
@@ -242,7 +263,7 @@ class PostgresAgentStore:
             connection.execute(text(
                 "UPDATE incarichi SET versione_stato = :version WHERE id = :id"
             ), {"version": version, "id": engagement_id})
-            result = {"version": version, "status": "applied"}
+            result = {"version": version, "status": "proposed" if kind == "write" and protected else "applied"}
             connection.execute(text(
                 "INSERT INTO operazioni_fascicolo (id, incarico_id, run_id, tipo, payload, risultato) "
                 "VALUES (:operation, :id, :run, :kind, CAST(:payload AS jsonb), CAST(:result AS jsonb))"
