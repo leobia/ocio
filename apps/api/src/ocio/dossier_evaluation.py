@@ -42,7 +42,7 @@ def load_cases(path: Path) -> dict[str, Any]:
 
 
 def evaluate_result(case: dict[str, Any], result: dict[str, Any]) -> list[str]:
-    errors = []
+    errors = [f"Analisi allegato fallita: {error}" for error in result.get('evidence_errors', [])]
     markdown = result['markdown']
     lower = markdown.casefold()
     for term in case['required_terms']:
@@ -120,6 +120,7 @@ def run_dossier_evaluation(dataset: Path, output: Path, baseline: Path | None = 
             store.create_engagement(case_id, {'company': case['company'], 'site': 'Sede interamente fittizia',
                                               'reference_date': '2026-10-02', 'template_revision_id': template_revision})
             runs = []
+            evidence_errors = []
             source_ids = ['incarico:azienda', 'incarico:sede', 'incarico:data_riferimento']
             for index, note in enumerate([case['notes'], case.get('followup', '')]):
                 if not note:
@@ -137,8 +138,13 @@ def run_dossier_evaluation(dataset: Path, output: Path, baseline: Path | None = 
                 for attachment in message['attachments']:
                     source = evidence.attachment(case_id, UUID(attachment['id']))
                     assert source is not None
-                    method, observations = analyzer.analyze(source[2], source[1], 'Descrivi solo quanto leggibile.', list(case['descriptions']))
-                    evidence.record_analysis(case_id, UUID(message['id']), UUID(attachment['id']), 'Materiale fittizio', method, observations)
+                    try:
+                        method, observations = analyzer.analyze(source[2], source[1], 'Descrivi solo quanto leggibile.', list(case['descriptions']))
+                        evidence.record_analysis(case_id, UUID(message['id']), UUID(attachment['id']), 'Materiale fittizio', method, observations)
+                    except Exception as error:
+                        reason = f"{attachment['name']}: {type(error).__name__}"
+                        evidence_errors.append(reason)
+                        evidence.record_error(case_id, UUID(attachment['id']), reason)
                 runs.append(asyncio.run(service.execute(case_id)))
             snapshot = agent_store.snapshot(case_id)
             assert snapshot is not None
@@ -147,9 +153,8 @@ def run_dossier_evaluation(dataset: Path, output: Path, baseline: Path | None = 
                     source_ids.append(message['id'])
                     source_ids.extend(o['id'] for o in message['observations'])
             result = {'id': case['id'], 'engagement_id': str(case_id), 'markdown': snapshot['dossier_markdown'],
-                      'relevance': snapshot['relevance'], 'runs': runs, 'source_ids': source_ids,
+                      'relevance': snapshot['relevance'], 'evidence_errors': evidence_errors, 'runs': runs, 'source_ids': source_ids,
                       'versions': {**current_versions(), 'model': runs[-1]['model'], 'prompt': PROMPT_VERSION,
-                                   'tools': digest(Path(__file__).with_name('dossier_agent.py')),
                                    'corpus': digest(ROOT / 'ocio_sources.yaml'),
                                    'template': hashlib.sha256(json.dumps({k: case.get(k) for k in ('template', 'descriptions', 'relevance_guidance')}, sort_keys=True).encode()).hexdigest()},
                       'editorial_review': {'reviewed_by': case.get('reviewed_by'), 'reference': case['reference'],

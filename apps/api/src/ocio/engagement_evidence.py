@@ -94,7 +94,19 @@ class OpenAIEvidenceAnalyzer:
             model=model,
             instructions=prompt,
             input=[{"role": "user", "content": user_content}],
-            text={"format": {"type": "json_object"}},
+            text={"format": {"type": "json_schema", "name": "evidence_observations", "strict": True,
+                "schema": {"type": "object", "additionalProperties": False, "required": ["observations"],
+                    "properties": {"observations": {"type": "array", "items": {
+                        "type": "object", "additionalProperties": False,
+                        "required": ["information", "status", "text", "position", "section"],
+                        "properties": {
+                            "information": {"type": "string"},
+                            "status": {"type": "string", "enum": ["osservato", "non_leggibile", "non_determinabile"]},
+                            "text": {"type": "string"},
+                            "position": {"type": ["string", "null"]},
+                            "section": {"type": ["string", "null"]},
+                        },
+                    }}}}}},
             store=False,
         )
         value = json.loads(response.output_text)

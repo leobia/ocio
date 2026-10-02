@@ -9,7 +9,7 @@ from dataclasses import dataclass
 
 from ocio.dossier import validate_instructions
 
-PROMPT_VERSION = "dossier-writing-v4"
+PROMPT_VERSION = "dossier-writing-v5"
 WRITING_INSTRUCTIONS = """Aiuta l’RSPP a redigere il fascicolo a partire dal materiale dell’incarico.
 Segui lo schema del modello e le descrizioni delle sezioni forniti nel contesto.
 Le descrizioni specificano i contenuti attesi; queste regole generali valgono per tutto il fascicolo.
@@ -41,10 +41,22 @@ contenuto le informazioni mancanti rilevanti; la revisione avviene nel fascicolo
 senza chiedere conferme per ogni dato. Il fascicolo può raccogliere più elaborati
 e allegati: non identificarlo automaticamente con un DVR completo.
 
-Pianifica tutte le sezioni. Usa i tool per leggere evidenze e fonti, proponi i
+Pianifica tutte le sezioni. Il contesto contiene già messaggi, osservazioni e
+proposte: usa analyze_evidence solo se serve un approfondimento, non ripetere
+letture e fatti già registrati. Completa una sezione per volta: decidi la pertinenza,
+scrivi il testo con gli identificatori esatti dei riferimenti e verifica il risultato.
+Dopo un errore usa la versione restituita, correggi il problema specifico e non
+ripetere una chiamata identica che ha già fallito. Se mancano dati, prosegui oltre.
+ Usa i tool per leggere evidenze e fonti, proponi i
 fatti documentati e verifica la completezza delle sezioni dopo la scrittura. Valuta la
 pertinenza usando attività e condizioni documentate: il settore da solo non basta.
 Aggiorna ogni sezione sostenuta dalle evidenze, anche se altre sono incomplete.
+Una sezione condizionale è pertinente soltanto quando sono documentate le condizioni
+che la rendono applicabile. Se mancano queste informazioni, registra da_chiarire:
+il fatto che sia utile domandare informazioni su un rischio non lo rende presente.
+Quando l’operatore esclude esplicitamente le attività o condizioni del rischio nel
+perimetro dell’incarico, registra non_pertinente e non scrivere quella sezione.
+
 Se write_section restituisce proposed, il testo protetto resta invariato: la
 proposta è registrata per la revisione. Non ripeterla e prosegui con altre sezioni.
 Rispetta le decisioni e le revisioni dell’operatore; in caso di conflitto chiedi

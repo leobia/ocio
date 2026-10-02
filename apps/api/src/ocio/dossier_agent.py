@@ -7,8 +7,8 @@ import json
 import os
 import re
 from collections.abc import Mapping, Sequence
-from typing import Any, Protocol
-from uuid import UUID, uuid4
+from typing import Any, Literal, Protocol
+from uuid import UUID, uuid4, uuid5
 
 from sqlalchemy import Engine, text
 
@@ -190,7 +190,10 @@ class PostgresAgentStore:
                     raise ValueError("Un fatto proposto richiede testo e riferimenti.")
                 connection.execute(text(
                     "INSERT INTO fatti_proposti_incarico (id, incarico_id, run_id, sezione, testo, riferimenti) "
-                    "VALUES (:fact_id, :id, :run, :section, :fact, CAST(:refs AS jsonb))"
+                    "SELECT :fact_id, :id, :run, :section, :fact, CAST(:refs AS jsonb) "
+                    "WHERE NOT EXISTS (SELECT 1 FROM fatti_proposti_incarico WHERE incarico_id = :id "
+                    "AND sezione = :section AND testo = :fact AND riferimenti @> CAST(:refs AS jsonb) "
+                    "AND riferimenti <@ CAST(:refs AS jsonb))"
                 ), {"fact_id": uuid4(), "id": engagement_id, "run": run_id,
                     "section": title, "fact": fact, "refs": json.dumps(references)})
             elif kind == "relevance":
@@ -475,11 +478,13 @@ class DossierAgentService:
         def apply(kind: str, operation_id: str, expected_version: int,
                   data: dict[str, Any]) -> str:
             try:
-                result = self.store.effect(run_id, UUID(operation_id), expected_version, kind, data)
-            except Exception as error:
+                result = self.store.effect(run_id, uuid5(run_id, f"{expected_version}:{kind}:{UUID(operation_id)}"), expected_version, kind, data)
+            except ValueError as error:
                 self.store.event(run_id, "tool_error", {"tool": kind, "operation_id": operation_id,
-                                                       "error_type": type(error).__name__})
-                raise
+                                                       "error_type": type(error).__name__, "message": str(error)})
+                state = self.store.snapshot(UUID(payload["engagement"]["id"]))
+                return json.dumps({"status": "not_applied", "error": str(error),
+                                   "version": state["version"] if state else None}, ensure_ascii=False)
             return json.dumps(result, ensure_ascii=False)
 
         @function_tool
@@ -541,8 +546,8 @@ class DossierAgentService:
 
         @function_tool
         def set_relevance(operation_id: str, expected_version: int, section: str,
-                          status: str, reason: str, references: list[str]) -> str:
-            """Record section relevance and evidence IDs; status is pertinent, not pertinent, or unclear."""
+                          status: Literal["da_valutare", "pertinente", "non_pertinente", "da_chiarire"], reason: str, references: list[str]) -> str:
+            """Record relevance: pertinente requires documented conditions; non_pertinente requires explicit exclusion; missing facts mean da_chiarire."""
             return apply("relevance", operation_id, expected_version, {
                 "section": section, "status": status, "reason": reason,
                 "references": references})

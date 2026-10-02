@@ -3,7 +3,7 @@ import type { Engagement } from '~/types'
 const props = defineProps<{ engagement: Engagement, section: string, body: string, disabled: boolean }>()
 const emit = defineEmits<{ changed: [] }>()
 interface Proposal { id: string, section: string, previous: string, proposed: string, status: string, references: string[] }
-interface Review { proposals: Proposal[], approvals: { id: string, author: string, created_at: string }[], sources: { id: string, text: string, url: string | null }[] }
+interface Review { protected_sections?: string[], questions?: { section: string | null, question: string }[], proposals: Proposal[], approvals: { id: string, author: string, created_at: string }[], sources: { id: string, text: string, url: string | null }[] }
 const review = ref<Review>({ proposals: [], approvals: [], sources: [] })
 const author = ref('')
 const reason = ref('')
@@ -36,6 +36,8 @@ async function act(path: string, extra: Record<string, unknown> = {}) {
     <template #header><h3 class="font-semibold">Revisione e approvazione</h3></template>
     <div class="space-y-3">
       <p v-if="error" role="alert" class="text-error">{{ error }}</p>
+      <p class="text-sm">Stato sezione: {{ review.proposals.find(p => p.section === section)?.status || 'da revisionare' }}<span v-if="review.protected_sections?.includes(section)"> · testo protetto</span></p>
+      <ul v-if="review.questions?.some(q => !q.section || q.section === section)" class="list-disc pl-5 text-sm"><li v-for="q in review.questions.filter(q => !q.section || q.section === section)" :key="q.question">Da chiarire: {{ q.question }}</li></ul>
       <p class="text-sm">Le modifiche manuali e il testo approvato sono protetti. Le proposte successive richiedono una decisione.</p>
       <UFormField label="Autore della revisione"><UInput v-model="author" class="w-full" /></UFormField>
       <UFormField label="Motivazione della revisione"><UInput v-model="reason" class="w-full" /></UFormField>

@@ -22,7 +22,7 @@ ROOT = Path(__file__).resolve().parents[4]
 def current_versions() -> dict[str, str]:
     return {'prompt': PROMPT_VERSION,
             'prompt_sha256': hashlib.sha256(Path(__file__).with_name('dossier_prompt.py').read_bytes()).hexdigest(),
-            'tools': hashlib.sha256(Path(__file__).with_name('dossier_agent.py').read_bytes()).hexdigest(),
+            'tools': hashlib.sha256(b''.join(Path(__file__).with_name(name).read_bytes() for name in ('dossier_agent.py', 'dossier.py', 'engagement_evidence.py', 'dossier_review.py'))).hexdigest(),
             'corpus': hashlib.sha256((ROOT / 'ocio_sources.yaml').read_bytes()).hexdigest()}
 
 

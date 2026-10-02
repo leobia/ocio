@@ -54,3 +54,11 @@ def test_research_keeps_proposals_out_of_agent_state_until_review(case_db):
     research.search(identifier, identity)
     assert research.list(identifier)[0]['status'] == 'errore'
     assert agent.snapshot(identifier)['public_identity'] == public
+
+
+def test_company_output_schema_uses_supported_string_urls_and_validates_locally():
+    from ocio.company_research import PublicProposal
+    schema = SearchResult.model_json_schema()
+    assert 'format' not in schema['$defs']['PublicProposal']['properties']['url']
+    with pytest.raises(ValidationError):
+        PublicProposal(field='sito_ufficiale', value='Sito', url='javascript:alert(1)', source_type='aziendale')

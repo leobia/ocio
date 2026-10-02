@@ -9,7 +9,7 @@ from uuid import UUID, uuid4
 
 from fastapi import APIRouter, HTTPException
 from openai import OpenAI
-from pydantic import BaseModel, Field, HttpUrl
+from pydantic import BaseModel, Field, HttpUrl, TypeAdapter, field_validator
 from sqlalchemy import Engine, text
 
 from ocio.dossier_review import ReviewStore
@@ -26,8 +26,13 @@ class IdentityInput(BaseModel):
 class PublicProposal(BaseModel):
     field: Literal['sito_ufficiale', 'sede_pubblicata', 'attivita_pubblicata', 'partita_iva']
     value: str = Field(min_length=1, max_length=2000)
-    url: HttpUrl
+    url: str
     source_type: Literal['istituzionale', 'aziendale', 'altro']
+
+    @field_validator('url')
+    @classmethod
+    def http_url(cls, value: str) -> str:
+        return str(TypeAdapter(HttpUrl).validate_python(value))
 
 
 class SearchResult(BaseModel):

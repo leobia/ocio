@@ -65,7 +65,11 @@ class ReviewStore:
 
     def state(self, engagement_id: UUID) -> dict[str, Any]:
         with self.engine.connect() as c:
+            protected: list[str] | None = c.execute(text("SELECT sezioni_protette FROM incarichi WHERE id = :id"), {"id": engagement_id}).scalar_one_or_none()
+            questions: list[dict[str, Any]] | None = c.execute(text("SELECT domande FROM run_fascicolo WHERE incarico_id = :id ORDER BY creato_il DESC LIMIT 1"), {"id": engagement_id}).scalar_one_or_none()
             return {
+                "protected_sections": protected or [],
+                "questions": questions or [],
                 "proposals": [dict(row) for row in c.execute(text(
                     "SELECT id, run_id, sezione AS section, precedente AS previous, proposto AS proposed, "
                     "riferimenti AS references, stato AS status FROM proposte_sezione WHERE incarico_id = :id ORDER BY creata_il DESC"

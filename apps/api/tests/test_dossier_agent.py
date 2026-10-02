@@ -115,6 +115,8 @@ def test_agent_waits_and_resumes_without_duplicating_effects() -> None:
                         "reason": "Fonte inesistente", "references": [str(uuid4())]})
                 effect("fact", {"section": "1. Anagrafica e organizzazione",
                                 "text": "L'azienda opera in sede.", "references": [message_id]})
+                effect("fact", {"section": "1. Anagrafica e organizzazione",
+                                "text": "L'azienda opera in sede.", "references": [message_id]})
                 effect("relevance", {"section": "1. Anagrafica e organizzazione",
                                      "status": "pertinente", "reason": "Appunto aziendale",
                                      "references": [message_id]})
