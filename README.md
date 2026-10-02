@@ -172,3 +172,13 @@ npm run typecheck
 npm run test:e2e
 npm run build
 ```
+
+## Valutazione del fascicolo
+
+`ocio valuta-fascicolo evaluation/dossier/cases-v1.yaml --output /tmp/fascicolo.json`
+esegue il modello configurato e l’analisi degli allegati su incarichi fittizi nuovi,
+conservati nel database per ispezione. Richiede migrazioni aggiornate e chiavi provider.
+`--baseline /percorso/report.json` confronta risultati sullo stesso dataset.
+Gli invarianti producono errori leggibili; riferimenti e rubrica editoriale restano
+separati. `reviewed_by: null` indica esempi ancora da validare con un RSPP.
+Le verifiche automatiche non attestano la correttezza professionale del fascicolo.

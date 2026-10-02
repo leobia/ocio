@@ -1,0 +1,57 @@
+version: dossier-cases-v1
+synthetic: true
+rubric:
+  - Fedeltà agli appunti e al loro grado di certezza
+  - Copertura dei dettagli rilevanti
+  - Organizzazione di paragrafi e tabelle
+  - Precisione della terminologia
+  - Utilità delle spiegazioni supportate
+  - Assenza di riempitivi e fatti inventati
+cases:
+  - id: ufficio-chimico-incerto
+    company: Impresa fittizia Alfa
+    template: "# Fascicolo\n\n## Attività\n\n## Chimico\n"
+    descriptions:
+      Attività: Descrivere in paragrafi le attività effettivamente documentate.
+      Chimico: Separare sostanze documentate e informazioni ancora mancanti.
+    relevance_guidance:
+      Chimico: Il settore non dimostra uso o assenza di prodotti chimici.
+    notes: "Attività amministrativa presso due postazioni. Settore dichiarato metalmeccanico, lavorazioni non accertate. Non sappiamo se si utilizzino prodotti chimici. Non abbiamo misure né valutazioni."
+    attachments: [fixtures/planimetria.png, fixtures/appunti.txt]
+    followup: "Confermo: questa sede è esclusivamente amministrativa. I prodotti chimici sono utilizzati in un’altra sede fuori incarico. Qui non si impiegano sostanze chimiche."
+    expected_relevance: {Attività: pertinente, Chimico: non_pertinente}
+    required_terms: [amministrativ, postazioni]
+    forbidden_terms: ["azienda conforme", "rischio chimico assente per il settore", "ventilazione a norma"]
+    reference: "La sede ospita attività amministrative svolte su due postazioni. Il settore dichiarato non permette di attribuire alla sede lavorazioni produttive. L’operatore ha successivamente escluso l’impiego di sostanze chimiche in questa sede, distinguendola dall’altra unità aziendale."
+    reviewed_by: null
+  - id: attivita-miste-tabella
+    company: Impresa fittizia Beta
+    template: "# Elaborato personalizzato\n\n## Fasi documentate\n\n## Attrezzature\n\n## Mancanti\n"
+    descriptions:
+      Fasi documentate: Distinguere ufficio, ricezione e assemblaggio manuale in paragrafi.
+      Attrezzature: Usare una tabella con elemento e impiego documentato.
+      Mancanti: Raccogliere documenti e verifiche mancanti senza attestarne l’inesistenza.
+    relevance_guidance: {}
+    notes: "Attività miste: ufficio e ricezione colli; al banco si assembla manualmente. Un carrello manuale muove i colli. Non conosciamo peso dei colli né frequenza. Registro manutenzioni non allegato. Nessuna attestazione di conformità disponibile."
+    attachments: [fixtures/appunti.txt]
+    followup: "La frequenza e i pesi non sono ancora disponibili. Redigi comunque le fasi già documentate; mantieni esplicite le informazioni mancanti."
+    expected_relevance: {Fasi documentate: pertinente, Attrezzature: pertinente, Mancanti: pertinente}
+    required_terms: [ufficio, ricezione, banco, carrello, "|"]
+    forbidden_terms: ["20 kg", "manutenzione non eseguita", "conforme alla normativa"]
+    reference: "Le attività comprendono lavoro d’ufficio, ricezione dei colli e assemblaggio manuale al banco. Il carrello manuale è impiegato per la movimentazione.\n\n| Elemento | Impiego |\n| --- | --- |\n| Banco | Assemblaggio manuale |\n| Carrello manuale | Movimentazione dei colli |\n\nPeso e frequenza di movimentazione restano da acquisire. La mancata disponibilità del registro non dimostra l’omissione della manutenzione."
+    reviewed_by: null
+  - id: contraddizioni-ristorazione
+    company: Impresa fittizia Gamma
+    template: "# Relazione\n\n## Organizzazione\n\n## Documenti\n"
+    descriptions:
+      Organizzazione: Descrivere attività e segnalare discrepanze nelle informazioni.
+      Documenti: Distinguere documenti acquisiti e documenti non disponibili.
+    relevance_guidance: {}
+    notes: "Cucina e consegna pasti. Primo appunto: quattro addetti; secondo appunto: sei addetti. Turni non indicati. Documento sulla formazione non allegato. Non sappiamo quali attrezzature siano presenti."
+    attachments: []
+    followup: "Gli addetti sono sei, il primo appunto era superato. Non ho ancora il documento di formazione né i turni."
+    expected_relevance: {Organizzazione: pertinente, Documenti: pertinente}
+    required_terms: [cucina, consegna, sei, formazione]
+    forbidden_terms: ["formazione non effettuata", "forno presente", "idoneità sanitaria accertata"]
+    reference: "L’attività comprende cucina e consegna dei pasti. Il secondo chiarimento dell’operatore indica sei addetti e supera il primo appunto, che ne riportava quattro. I turni e la documentazione formativa restano da acquisire; non è possibile dedurre da questa mancanza se la formazione sia stata effettuata."
+    reviewed_by: null
