@@ -422,7 +422,7 @@ class DossierAgentService:
 
         store = self.store
 
-        class BudgetHooks(RunHooks):  # type: ignore[type-arg]
+        class BudgetHooks(RunHooks[Any]):
             total_tokens = 0
 
             async def on_llm_end(self, context: Any, agent: Any, response: Any) -> None:

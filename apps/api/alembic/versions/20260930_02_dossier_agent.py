@@ -1,8 +1,8 @@
 """Persist dossier agent runs, decisions and idempotent effects."""
 
-from alembic import op
 from sqlalchemy import text
 
+from alembic import op
 from ocio.dossier import section_titles
 
 revision = "20260930_02"
