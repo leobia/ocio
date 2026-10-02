@@ -85,7 +85,7 @@ class OpenAIEvidenceAnalyzer:
             "instruction": instruction, "sections": list(sections),
             "document": passages if not is_image else None,
         }, ensure_ascii=False)
-        user_content: Any = [{"type": "input_text", "text": user_text}]
+        user_content: Any = [{"type": "input_text", "text": "Restituisci le osservazioni in JSON.\n" + user_text}]
         if is_image:
             image_url = f"data:{media_type};base64,{base64.b64encode(content).decode('ascii')}"
             user_content.append({"type": "input_image", "image_url": image_url})

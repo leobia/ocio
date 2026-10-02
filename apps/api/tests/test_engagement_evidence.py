@@ -181,3 +181,11 @@ def test_postgres_evidence_keeps_original_and_enforces_engagement_scope() -> Non
             connection.execute(text("DELETE FROM revisioni_modello_fascicolo WHERE id = :id"), {"id": revision_id})
             connection.execute(text("DELETE FROM modelli_fascicolo WHERE id = :id"), {"id": template_id})
         engine.dispose()
+
+
+def test_json_mode_is_requested_in_input_not_only_in_instructions(monkeypatch):
+    def create(**kwargs):
+        assert 'json' in str(kwargs['input']).lower(), 'Responses JSON mode requires JSON in input'
+        return SimpleNamespace(output_text='{"observations":[{"information":"Appunto", "status":"osservato", "text":"Appunto fittizio", "position":"riga 1", "section":"Attività"}]}')
+    monkeypatch.setattr('ocio.engagement_evidence.OpenAI', lambda: SimpleNamespace(responses=SimpleNamespace(create=create)))
+    OpenAIEvidenceAnalyzer().analyze(b'Appunto fittizio', 'text/plain', 'Leggi il testo.', ['Attività'])
