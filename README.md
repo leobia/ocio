@@ -26,7 +26,7 @@ Tecnologie:
 
 - **Backend:** Python 3.13, FastAPI, SQLAlchemy, Alembic
 - **Database:** PostgreSQL con estensioni per ricerca BM25 e vettoriale
-- **Modelli:** OpenAI (embedding e generazione), Cohere (reranking), Jina (valutazioni)
+- **Modelli:** OpenAI (embedding e generazione), Cohere e Jina (reranking, in valutazione)
 - **Frontend:** Nuxt 4, Vue 3, Nuxt UI, Tiptap
 - **Infrastruttura:** Docker/Podman Compose
 - **Test e valutazione:** pytest, Playwright, benchmark retrieval in `evaluation/`
