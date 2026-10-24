@@ -8,16 +8,34 @@ from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass
 from datetime import date, datetime
 from typing import Any, Literal, Protocol
+from urllib.parse import quote
 from uuid import UUID, uuid4
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, File, Form, Request, UploadFile
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy import Engine, create_engine, text
 
+from ocio.company_research import company_router
 from ocio.database import database_url
-from ocio.dossier import migration, validate_instructions
+from ocio.dossier import (
+    exportable_dossier,
+    migration,
+    section_titles,
+    validate_instructions,
+)
+from ocio.dossier_agent import DossierAgentService, PostgresAgentStore, StateConflict
+from ocio.dossier_review import protect_sections, review_router, section_body
+from ocio.engagement_evidence import (
+    SUPPORTED,
+    EvidenceAnalyzer,
+    EvidenceStore,
+    MemoryEvidenceStore,
+    OpenAIEvidenceAnalyzer,
+    PostgresEvidenceStore,
+)
+from ocio.quality import quality_router
 
 LOGGER = logging.getLogger("ocio.api")
 
@@ -324,7 +342,7 @@ class PostgresStore:
                 "ORDER BY predefinito DESC, nome"
             )).mappings().all()
             revisions = connection.execute(text(
-                "SELECT id, modello_id, numero, schema_markdown, indicazioni, creata_il "
+                "SELECT id, modello_id, numero, schema_markdown, indicazioni, pertinenza, creata_il "
                 "FROM revisioni_modello_fascicolo ORDER BY modello_id, numero"
             )).mappings().all()
         by_template: dict[UUID, list[dict[str, Any]]] = {}
@@ -346,13 +364,15 @@ class PostgresStore:
             ), {"id": template_id, **values}).mappings().one()
             revision = connection.execute(text(
                 "INSERT INTO revisioni_modello_fascicolo "
-                "(id, modello_id, numero, schema_markdown, indicazioni) "
-                "VALUES (:id, :template_id, 1, :markdown, CAST(:instructions AS jsonb)) "
-                "RETURNING id, modello_id, numero, schema_markdown, indicazioni, creata_il"
+                "(id, modello_id, numero, schema_markdown, indicazioni, pertinenza) "
+                "VALUES (:id, :template_id, 1, :markdown, CAST(:instructions AS jsonb), "
+                "CAST(:relevance_guidance AS jsonb)) "
+                "RETURNING id, modello_id, numero, schema_markdown, indicazioni, pertinenza, creata_il"
             ), {
                 "id": revision_id, "template_id": template_id,
                 "markdown": values["markdown"],
                 "instructions": json.dumps(values["instructions"]),
+                "relevance_guidance": json.dumps(values["relevance_guidance"]),
             }).mappings().one()
         return {
             "id": str(template["id"]), "name": template["nome"],
@@ -375,13 +395,15 @@ class PostgresStore:
             ), {"id": template_id}).scalar_one()
             revision = connection.execute(text(
                 "INSERT INTO revisioni_modello_fascicolo "
-                "(id, modello_id, numero, schema_markdown, indicazioni) "
-                "VALUES (:id, :template_id, :number, :markdown, CAST(:instructions AS jsonb)) "
-                "RETURNING id, modello_id, numero, schema_markdown, indicazioni, creata_il"
+                "(id, modello_id, numero, schema_markdown, indicazioni, pertinenza) "
+                "VALUES (:id, :template_id, :number, :markdown, CAST(:instructions AS jsonb), "
+                "CAST(:relevance_guidance AS jsonb)) "
+                "RETURNING id, modello_id, numero, schema_markdown, indicazioni, pertinenza, creata_il"
             ), {
                 "id": revision_id, "template_id": template_id, "number": number,
                 "markdown": values["markdown"],
                 "instructions": json.dumps(values["instructions"]),
+                "relevance_guidance": json.dumps(values["relevance_guidance"]),
             }).mappings().one()
             engagements = connection.execute(text(
                 "SELECT i.id, i.revisione_modello_id, i.fascicolo_markdown "
@@ -441,6 +463,11 @@ class PostgresStore:
                 "id": uuid4(), "engagement_id": engagement_id,
                 "revision_id": values["template_revision_id"], "markdown": revision,
             })
+            for title in dict.fromkeys(section_titles(revision)):
+                connection.execute(text(
+                    "INSERT INTO pertinenza_sezioni (incarico_id, sezione, stato, motivo, origine) "
+                    "VALUES (:id, :section, 'da_valutare', 'Sezione del modello adottato.', 'sistema')"
+                ), {"id": engagement_id, "section": title})
             return self._engagement(connection, engagement_id)
 
     def engagement(self, engagement_id: UUID) -> Mapping[str, Any] | None:
@@ -456,8 +483,13 @@ class PostgresStore:
             ), {"id": engagement_id}).scalar_one_or_none()
             if current is None:
                 return None
+            before = connection.execute(text("SELECT fascicolo_markdown FROM incarichi WHERE id = :id"), {"id": engagement_id}).scalar_one()
+            changed = [title for title in section_titles(markdown)
+                       if title not in section_titles(before) or section_body(before, title) != section_body(markdown, title)]
+            protect_sections(connection, engagement_id, changed)
             connection.execute(text(
-                "UPDATE incarichi SET fascicolo_markdown = :markdown, aggiornato_il = now() "
+                "UPDATE incarichi SET fascicolo_markdown = :markdown, aggiornato_il = now(), "
+                "versione_stato = versione_stato + 1 "
                 "WHERE id = :id"
             ), {"id": engagement_id, "markdown": markdown})
             proposals = connection.execute(text(
@@ -477,6 +509,12 @@ class PostgresStore:
             self._append_dossier_revision(
                 connection, engagement_id, current, markdown, "modifica_manuale"
             )
+            for title in dict.fromkeys(section_titles(markdown)):
+                connection.execute(text(
+                    "INSERT INTO pertinenza_sezioni (incarico_id, sezione, stato, motivo, origine) "
+                    "VALUES (:id, :section, 'da_valutare', 'Sezione aggiunta dall’operatore.', 'sistema') "
+                    "ON CONFLICT (incarico_id, sezione) DO NOTHING"
+                ), {"id": engagement_id, "section": title})
             return self._engagement(connection, engagement_id)
 
     def apply_migration(
@@ -493,7 +531,8 @@ class PostgresStore:
                 return None
             updated = connection.execute(text(
                 "UPDATE incarichi SET revisione_modello_id = :target, "
-                "fascicolo_markdown = :markdown, aggiornato_il = now() "
+                "fascicolo_markdown = :markdown, aggiornato_il = now(), "
+                "versione_stato = versione_stato + 1 "
                 "WHERE id = :id AND revisione_modello_id = :source "
                 "AND fascicolo_markdown = :current RETURNING id"
             ), {
@@ -512,6 +551,12 @@ class PostgresStore:
                 connection, engagement_id, item["revisione_destinazione_id"],
                 item["fascicolo_proposto"], "migrazione",
             )
+            for title in dict.fromkeys(section_titles(item["fascicolo_proposto"])):
+                connection.execute(text(
+                    "INSERT INTO pertinenza_sezioni (incarico_id, sezione, stato, motivo, origine) "
+                    "VALUES (:id, :section, 'da_valutare', 'Sezione introdotta dal modello.', 'sistema') "
+                    "ON CONFLICT (incarico_id, sezione) DO NOTHING"
+                ), {"id": engagement_id, "section": title})
             return self._engagement(connection, engagement_id)
 
     @staticmethod
@@ -533,8 +578,9 @@ class PostgresStore:
     def _engagement(connection: Any, engagement_id: UUID) -> Mapping[str, Any] | None:
         row = connection.execute(text(
             "SELECT i.id, i.azienda, i.sede, i.data_riferimento, i.fascicolo_markdown, "
-            "i.creato_il, i.aggiornato_il, m.id AS modello_id, m.nome AS modello, "
-            "r.id AS revisione_id, r.numero AS revisione, r.indicazioni "
+            "i.creato_il, i.aggiornato_il, i.stato, i.versione_stato, "
+            "m.id AS modello_id, m.nome AS modello, "
+            "r.id AS revisione_id, r.numero AS revisione, r.indicazioni, r.pertinenza "
             "FROM incarichi i JOIN revisioni_modello_fascicolo r "
             "ON r.id = i.revisione_modello_id JOIN modelli_fascicolo m ON m.id = r.modello_id "
             "WHERE i.id = :id"
@@ -552,14 +598,46 @@ class PostgresStore:
             "ON r.id = x.revisione_destinazione_id WHERE x.incarico_id = :id "
             "AND x.stato = 'proposta' ORDER BY r.numero DESC LIMIT 1"
         ), {"id": engagement_id}).mappings().one_or_none()
+        relevance = connection.execute(text(
+            "SELECT sezione, stato, motivo, riferimenti, origine "
+            "FROM pertinenza_sezioni WHERE incarico_id = :id"
+        ), {"id": engagement_id}).mappings().all()
+        relevance_history = connection.execute(text(
+            "SELECT id, run_id, sezione, stato, motivo, riferimenti, origine, creata_il "
+            "FROM revisioni_pertinenza WHERE incarico_id = :id ORDER BY creata_il DESC, id DESC"
+        ), {"id": engagement_id}).mappings().all()
+        proposed_facts = connection.execute(text(
+            "SELECT id, run_id, sezione, testo, riferimenti, creato_il "
+            "FROM fatti_proposti_incarico WHERE incarico_id = :id ORDER BY creato_il, id"
+        ), {"id": engagement_id}).mappings().all()
         return {
             "id": str(row["id"]), "company": row["azienda"], "site": row["sede"],
             "reference_date": row["data_riferimento"], "dossier_markdown": row["fascicolo_markdown"],
             "created_at": row["creato_il"], "updated_at": row["aggiornato_il"],
+            "status": row["stato"], "version": row["versione_stato"],
+            "relevance": {item["sezione"]: {
+                "status": item["stato"], "reason": item["motivo"],
+                "references": item["riferimenti"], "origin": item["origine"],
+            } for item in relevance},
+            "relevance_history": [{"id": str(item["id"]),
+                "run_id": str(item["run_id"]) if item["run_id"] else None,
+                "section": item["sezione"], "status": item["stato"],
+                "reason": item["motivo"], "references": item["riferimenti"],
+                "origin": item["origine"], "created_at": item["creata_il"]}
+                for item in relevance_history],
+            "proposed_facts": [{"id": str(item["id"]), "run_id": str(item["run_id"]),
+                "section": item["sezione"], "text": item["testo"],
+                "references": item["riferimenti"], "created_at": item["creato_il"]}
+                for item in proposed_facts],
+            "exportable_markdown": exportable_dossier(
+                row["fascicolo_markdown"],
+                {item["sezione"] for item in relevance if item["stato"] == "non_pertinente"},
+            ),
             "template": {"id": str(row["modello_id"]), "name": row["modello"]},
             "template_revision": {
                 "id": str(row["revisione_id"]), "number": row["revisione"],
                 "instructions": row["indicazioni"],
+                "relevance_guidance": row["pertinenza"],
             },
             "history": [{
                 "id": str(item["id"]), "number": item["numero"],
@@ -633,20 +711,30 @@ class TemplateInput(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     markdown: str = Field(min_length=1, max_length=100_000)
     instructions: dict[str, str] = Field(default_factory=dict)
+    relevance_guidance: dict[str, str] = Field(default_factory=dict)
 
     @model_validator(mode="after")
     def instructions_match_sections(self) -> TemplateInput:
+        titles = section_titles(self.markdown)
+        if len(titles) != len(set(titles)):
+            raise ValueError("I titoli delle sezioni devono essere univoci.")
         validate_instructions(self.markdown, self.instructions)
+        validate_instructions(self.markdown, self.relevance_guidance)
         return self
 
 
 class TemplateRevisionInput(BaseModel):
     markdown: str = Field(min_length=1, max_length=100_000)
     instructions: dict[str, str] = Field(default_factory=dict)
+    relevance_guidance: dict[str, str] = Field(default_factory=dict)
 
     @model_validator(mode="after")
     def instructions_match_sections(self) -> TemplateRevisionInput:
+        titles = section_titles(self.markdown)
+        if len(titles) != len(set(titles)):
+            raise ValueError("I titoli delle sezioni devono essere univoci.")
         validate_instructions(self.markdown, self.instructions)
+        validate_instructions(self.markdown, self.relevance_guidance)
         return self
 
 
@@ -659,6 +747,16 @@ class EngagementInput(BaseModel):
 
 class DossierInput(BaseModel):
     markdown: str = Field(min_length=1, max_length=500_000)
+
+
+class ObservationSectionInput(BaseModel):
+    section: str | None = None
+
+
+class RelevanceInput(BaseModel):
+    status: Literal["da_valutare", "pertinente", "non_pertinente", "da_chiarire"]
+    reason: str = Field(min_length=1, max_length=2000)
+    references: list[str] = Field(default_factory=list)
 
 
 class CitationOutput(BaseModel):
@@ -736,7 +834,10 @@ ERROR_RESPONSES: dict[int | str, dict[str, Any]] = {
 
 
 def create_app(
-    store: Store | None = None, backend: ChatBackend | None = None
+    store: Store | None = None, backend: ChatBackend | None = None,
+    evidence_store: EvidenceStore | None = None,
+    evidence_analyzer: EvidenceAnalyzer | None = None,
+    agent_service: DossierAgentService | None = None,
 ) -> FastAPI:
     app = FastAPI(
         title="OCIO API", version="1.0.0",
@@ -752,6 +853,21 @@ def create_app(
     else:
         selected_store = store
     selected_backend = backend or UnconfiguredBackend()
+    selected_evidence_store = evidence_store or (
+        PostgresEvidenceStore(selected_store.engine)
+        if isinstance(selected_store, PostgresStore) else MemoryEvidenceStore()
+    )
+    selected_evidence_analyzer = evidence_analyzer or OpenAIEvidenceAnalyzer()
+    selected_agent = agent_service or (
+        DossierAgentService(PostgresAgentStore(selected_store.engine),
+                            selected_evidence_store, selected_backend)
+        if isinstance(selected_store, PostgresStore) else None
+    )
+
+    if isinstance(selected_store, PostgresStore):
+        app.include_router(review_router(selected_store.engine))
+        app.include_router(company_router(selected_store.engine))
+        app.include_router(quality_router(selected_store.engine))
 
     @app.middleware("http")
     async def request_id_middleware(request: Request, call_next: Any) -> Any:
@@ -921,6 +1037,132 @@ def create_app(
             raise ApiError(404, "engagement_not_found", "Incarico non trovato.")
         return result
 
+    @app.get("/v1/engagements/{engagement_id}/agent", responses=ERROR_RESPONSES)
+    def get_engagement_agent(engagement_id: UUID) -> Mapping[str, Any] | None:
+        if selected_agent is None:
+            raise ApiError(503, "agent_unavailable", "Agente non configurato.")
+        if selected_store.engagement(engagement_id) is None:
+            raise ApiError(404, "engagement_not_found", "Incarico non trovato.")
+        return selected_agent.store.run(engagement_id)
+
+    @app.post("/v1/engagements/{engagement_id}/agent/runs", responses=ERROR_RESPONSES)
+    async def start_engagement_agent(engagement_id: UUID) -> Mapping[str, Any]:
+        if selected_agent is None:
+            raise ApiError(503, "agent_unavailable", "Agente non configurato.")
+        if selected_store.engagement(engagement_id) is None:
+            raise ApiError(404, "engagement_not_found", "Incarico non trovato.")
+        try:
+            return await selected_agent.execute(engagement_id)
+        except StateConflict as error:
+            raise ApiError(409, "agent_running", str(error)) from error
+
+    @app.patch("/v1/engagements/{engagement_id}/relevance/{section:path}", responses=ERROR_RESPONSES)
+    def update_engagement_relevance(
+        engagement_id: UUID, section: str, payload: RelevanceInput
+    ) -> Mapping[str, Any]:
+        if selected_agent is None:
+            raise ApiError(503, "agent_unavailable", "Agente non configurato.")
+        try:
+            selected_agent.store.relevance(engagement_id, section, payload.status,
+                                           payload.reason, payload.references)
+        except ValueError as error:
+            raise ApiError(422, "invalid_relevance", str(error)) from error
+        result = selected_store.engagement(engagement_id)
+        assert result is not None
+        return result
+
+    @app.get("/v1/engagements/{engagement_id}/messages", responses=ERROR_RESPONSES)
+    def engagement_messages(engagement_id: UUID) -> list[dict[str, Any]]:
+        result = selected_evidence_store.messages(engagement_id)
+        if result is None:
+            raise ApiError(404, "engagement_not_found", "Incarico non trovato.")
+        return result
+
+    @app.post("/v1/engagements/{engagement_id}/messages", status_code=201, responses=ERROR_RESPONSES)
+    async def add_engagement_message(
+        engagement_id: UUID,
+        content: str = Form(default=""),
+        files: list[UploadFile] = File(default=[]),
+        file_instructions: list[str] = Form(default=[]),
+    ) -> dict[str, Any]:
+        if not content.strip() and not files:
+            raise ApiError(422, "empty_message", "Scrivi un messaggio o allega un file.")
+        if len(files) > 5:
+            raise ApiError(422, "too_many_files", "Allega al massimo cinque file per messaggio.")
+        if len(content) > 10_000:
+            raise ApiError(422, "message_too_long", "Il messaggio supera 10.000 caratteri.")
+        if file_instructions and len(file_instructions) != len(files):
+            raise ApiError(422, "invalid_file_instructions", "Indica un'istruzione per ogni file.")
+        original: list[tuple[str, str, bytes, str]] = []
+        for index, file in enumerate(files):
+            data = await file.read(10_000_001)
+            if len(data) > 10_000_000:
+                raise ApiError(413, "file_too_large", "Ogni file può contenere al massimo 10 MB.")
+            instruction = (file_instructions[index].strip() if file_instructions else "") or content.strip()
+            if len(instruction) > 10_000:
+                raise ApiError(422, "instruction_too_long", "L'istruzione supera 10.000 caratteri.")
+            original.append((file.filename or "allegato", file.content_type or "application/octet-stream", data, instruction))
+        message = selected_evidence_store.add_message(engagement_id, content.strip(), original)
+        if message is None:
+            raise ApiError(404, "engagement_not_found", "Incarico non trovato.")
+        engagement = selected_store.engagement(engagement_id)
+        assert engagement is not None
+        sections = section_titles(engagement["dossier_markdown"])
+        # Persist the message and every original before analysis can fail.
+        for attachment in message["attachments"]:
+            identifier = UUID(attachment["id"])
+            source = selected_evidence_store.attachment(engagement_id, identifier)
+            assert source is not None
+            _, media_type, data = source
+            try:
+                if media_type not in SUPPORTED:
+                    raise ValueError("Formato non supportato. Usa JPEG, PNG, WebP, PDF o testo semplice.")
+                method, observations = selected_evidence_analyzer.analyze(
+                    data, media_type, attachment["instruction"], sections
+                )
+                selected_evidence_store.record_analysis(
+                    engagement_id, UUID(message["id"]), identifier,
+                    attachment["instruction"], method, observations,
+                )
+            except Exception as error:
+                LOGGER.warning("engagement evidence analysis failed", extra={
+                    "engagement_id": str(engagement_id), "attachment_id": str(identifier),
+                    "error_type": type(error).__name__,
+                })
+                reason = str(error) if isinstance(error, ValueError) else "Analisi non disponibile. L'originale è stato conservato."
+                selected_evidence_store.record_error(engagement_id, identifier, reason)
+        if not files and content.strip():
+            selected_evidence_store.record_note(
+                engagement_id, UUID(message["id"]), content.strip()
+            )
+        result = selected_evidence_store.messages(engagement_id)
+        assert result is not None
+        return next(item for item in result if item["id"] == message["id"])
+
+    @app.get("/v1/engagements/{engagement_id}/attachments/{attachment_id}", responses=ERROR_RESPONSES)
+    def get_engagement_attachment(engagement_id: UUID, attachment_id: UUID) -> Response:
+        result = selected_evidence_store.attachment(engagement_id, attachment_id)
+        if result is None:
+            raise ApiError(404, "attachment_not_found", "Allegato non trovato.")
+        name, media_type, data = result
+        return Response(data, media_type=media_type, headers={
+            "Content-Disposition": f"attachment; filename*=UTF-8''{quote(name, safe='')}",
+            "X-Content-Type-Options": "nosniff",
+        })
+
+    @app.patch("/v1/engagements/{engagement_id}/observations/{observation_id}", responses=ERROR_RESPONSES)
+    def link_observation(
+        engagement_id: UUID, observation_id: UUID, payload: ObservationSectionInput
+    ) -> dict[str, str | None]:
+        engagement = selected_store.engagement(engagement_id)
+        if engagement is None:
+            raise ApiError(404, "engagement_not_found", "Incarico non trovato.")
+        if payload.section is not None and payload.section not in section_titles(engagement["dossier_markdown"]):
+            raise ApiError(422, "section_not_found", "Sezione del fascicolo non trovata.")
+        if not selected_evidence_store.link_section(engagement_id, observation_id, payload.section):
+            raise ApiError(404, "observation_not_found", "Osservazione non trovata.")
+        return {"section": payload.section}
+
     @app.patch("/v1/engagements/{engagement_id}/dossier", responses=ERROR_RESPONSES)
     def update_dossier(
         engagement_id: UUID, payload: DossierInput
@@ -956,6 +1198,7 @@ def _template_revision(row: Mapping[str, Any]) -> dict[str, Any]:
     return {
         "id": str(row["id"]), "number": row["numero"],
         "markdown": row["schema_markdown"], "instructions": row["indicazioni"],
+        "relevance_guidance": row["pertinenza"],
         "created_at": row["creata_il"],
     }
 

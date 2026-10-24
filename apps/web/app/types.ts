@@ -67,6 +67,7 @@ export interface DossierTemplateRevision {
   number: number
   markdown: string
   instructions: Record<string, string>
+  relevance_guidance: Record<string, string>
   created_at: string
 }
 
@@ -94,7 +95,7 @@ export interface DossierHistory {
   number: number
   template_revision_id: string
   dossier_markdown: string
-  reason: 'creazione' | 'modifica_manuale' | 'migrazione'
+  reason: 'creazione' | 'modifica_manuale' | 'migrazione' | 'agente'
   created_at: string
 }
 
@@ -114,10 +115,62 @@ export interface Engagement {
   site: string
   reference_date: string
   dossier_markdown: string
+  status: 'in_corso' | 'in_attesa' | 'completato' | 'fallito'
+  version: number
+  relevance: Record<string, { status: 'da_valutare' | 'pertinente' | 'non_pertinente' | 'da_chiarire', reason: string, references: string[], origin: 'sistema' | 'agente' | 'operatore' }>
+  relevance_history: { id: string, run_id: string | null, section: string, status: string, reason: string, references: string[], origin: string, created_at: string }[]
+  proposed_facts: { id: string, run_id: string, section: string, text: string, references: string[], created_at: string }[]
+  exportable_markdown: string
   created_at: string
   updated_at: string
   template: { id: string, name: string }
-  template_revision: { id: string, number: number, instructions: Record<string, string> }
+  template_revision: { id: string, number: number, instructions: Record<string, string>, relevance_guidance: Record<string, string> }
   history: DossierHistory[]
   pending_migration: DossierMigration | null
+}
+
+export interface EngagementAttachment {
+  id: string
+  name: string
+  media_type: string
+  instruction: string
+  size: number
+  status: 'in_attesa' | 'analizzato' | 'errore'
+  error: string | null
+}
+
+export interface EngagementObservation {
+  id: string
+  attachment_id: string | null
+  section: string | null
+  information: string
+  status: 'osservato' | 'non_leggibile' | 'non_determinabile'
+  text: string
+  position: string | null
+  instruction: string
+  method: string
+  version: string
+}
+
+export interface EngagementMessage {
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+  created_at: string
+  attachments: EngagementAttachment[]
+  observations: EngagementObservation[]
+}
+
+export interface DossierAgentRun {
+  id: string
+  status: 'in_corso' | 'in_attesa' | 'completato' | 'fallito'
+  model: string
+  prompt_version: string
+  template_revision_id: string
+  plan: string
+  questions: { question: string, impact: number, section: string | null }[]
+  reason: string
+  created_at: string
+  finished_at: string | null
+  events: { type: string, data: Record<string, unknown>, created_at: string }[]
 }

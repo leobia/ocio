@@ -12,7 +12,7 @@ test('mantiene contenuti e indicazioni quando rinomina e riordina, anche dopo un
     attempts++
     if (attempts === 1) return route.fulfill({ status: 503, json: { error: { message: 'Salvataggio temporaneamente non disponibile.' } } })
     const body = route.request().postDataJSON()
-    const revision = { id: 'revision-2', number: 2, markdown: body.markdown, instructions: body.instructions, created_at: createdAt }
+    const revision = { id: 'revision-2', number: 2, markdown: body.markdown, instructions: body.instructions, relevance_guidance: body.relevance_guidance, created_at: createdAt }
     template.revisions.push(revision)
     return route.fulfill({ status: 201, json: revision })
   })
@@ -65,5 +65,5 @@ test('crea un modello a sezioni e protegge le modifiche non salvate', async ({ p
   await expect(page.getByLabel('Titolo della sezione', { exact: true })).toHaveValue('Formazione')
   await page.getByRole('button', { name: 'Crea modello', exact: true }).click()
   await expect(page.getByRole('status')).toContainText('Modello creato')
-  expect(saved).toEqual({ name: 'Modello personalizzato', markdown: '## Formazione\n', instructions: { Formazione: 'Collega gli attestati.' } })
+  expect(saved).toEqual({ name: 'Modello personalizzato', markdown: '## Formazione\n', instructions: { Formazione: 'Collega gli attestati.' }, relevance_guidance: {} })
 })

@@ -187,6 +187,16 @@ all'indirizzo interno della API: il browser comunica soltanto con il proxy Nuxt.
 
 - `/`: assistente con cronologia, fonti e dati del caso.
 - `/incarichi`: elenco, creazione e fascicoli con cronologia delle versioni.
+- Nel fascicolo, **Chat e materiali** conserva appunti e fino a cinque allegati per
+  messaggio (JPEG, PNG, WebP, PDF o testo, massimo 10 MB ciascuno). Le osservazioni
+  possono essere collegate alle sezioni; un'analisi fallita conserva l'originale.
+  L'analisi di foto e documenti richiede `OPENAI_API_KEY` e usa
+  `OCIO_EVIDENCE_MODEL` (predefinito `gpt-4.1-mini`).
+- Nel fascicolo, **Revisione e approvazione** protegge il testo manuale e approvato,
+  conserva le decisioni sulle proposte e permette di esportare una revisione immutabile.
+- **Dati aziendali pubblici** ricerca l’impresa dopo conferma dell’identità; ogni dato
+  richiede revisione. Usa `OPENAI_API_KEY` e `OCIO_COMPANY_RESEARCH_MODEL`
+  (predefinito `gpt-4.1`). Gli errori non impediscono il lavoro sul fascicolo.
 - `/modelli`: sezioni, contenuto iniziale e indicazioni per l’agente. Ogni modifica
   salvata crea una revisione; gli incarichi esistenti la adottano solo applicando
   la proposta di migrazione dopo il confronto.
@@ -196,3 +206,24 @@ npm run typecheck
 npm run test:e2e
 npm run build
 ```
+
+## Valutazione del fascicolo
+
+`ocio valuta-fascicolo evaluation/dossier/cases-v1.yaml --output /tmp/fascicolo.json`
+esegue il modello configurato e l’analisi degli allegati su incarichi fittizi nuovi,
+conservati nel database per ispezione. Richiede migrazioni aggiornate e chiavi provider.
+`--baseline /percorso/report.json` confronta risultati sullo stesso dataset.
+Gli invarianti producono errori leggibili; riferimenti e rubrica editoriale restano
+separati. `reviewed_by: null` indica esempi ancora da validare con un RSPP.
+Le verifiche automatiche non attestano la correttezza professionale del fascicolo.
+
+L’inbox `/qualita` raccoglie decisioni e segnalazioni; il responsabile può scartare,
+correggere solo l’incarico o promuovere un caso riscritto con dati fittizi.
+La riapertura revoca la promozione e conserva l’audit. Le fonti normative nuove
+continuano a passare dal registro e dalla pipeline del corpus.
+
+`valuta-fascicolo` include le regressioni attualmente promosse. Prima di rilasciare
+modifiche all’agente, esegui `ocio verifica-rilascio-fascicolo <dataset> <report>`:
+il controllo richiede invarianti superati, versioni correnti e valutazioni RSPP
+registrate nel report. L’autore è dichiarato dall’operatore nell’alpha locale;
+autenticazione e controllo degli accessi restano nella #21.
