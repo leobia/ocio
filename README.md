@@ -5,6 +5,40 @@ Monorepo per OCIO, agente per la sicurezza sul lavoro.
 `apps/api` contiene il backend Python. Le immagini e la configurazione
 infrastrutturale locale sono in `infra/`.
 
+## In breve
+
+OCIO è un assistente AI per RSPP e consulenti: risponde a domande sulla
+sicurezza sul lavoro italiana citando le fonti ufficiali (D.Lgs. 81/2008, decreti,
+accordi Stato-Regioni, chiarimenti). È un'alpha di ricerca, non un prodotto.
+
+Come funziona (RAG ibrido):
+
+1. Le fonti ufficiali (Normattiva, Gazzetta Ufficiale) sono acquisite a mano,
+   versionate in `corpus/fonti/` e importate in PostgreSQL.
+2. Ogni documento è diviso in chunk strutturali (articoli, commi), indicizzati
+   con ricerca full-text/BM25 e con embedding.
+3. Una domanda viene riscritta, i chunk si recuperano con ricerca ibrida
+   (lessicale + vettoriale) e un reranker opzionale li riordina.
+4. Il modello verifica che le evidenze bastino e risponde solo con citazioni
+   alle fonti; altrimenti dichiara di non avere abbastanza elementi.
+
+Tecnologie:
+
+- **Backend:** Python 3.13, FastAPI, SQLAlchemy, Alembic
+- **Database:** PostgreSQL con estensioni per ricerca BM25 e vettoriale
+- **Modelli:** OpenAI (embedding e generazione), Cohere (reranking), Jina (valutazioni)
+- **Frontend:** Nuxt 4, Vue 3, Nuxt UI, Tiptap
+- **Infrastruttura:** Docker/Podman Compose
+- **Test e valutazione:** pytest, Playwright, benchmark retrieval in `evaluation/`
+
+Altri dettagli: [`ocio.md`](ocio.md) (visione) e [`docs/`](docs/) (decisioni e ricerche).
+
+## Licenza
+
+Copyright (c) 2026 Leonardo Bianco. Tutti i diritti riservati. Il codice è
+pubblico solo per consultazione; vedi [`LICENSE`](LICENSE). Le fonti in
+`corpus/fonti/` sono atti pubblici e restano soggetti alle rispettive condizioni.
+
 ## Avvio locale
 
 Prepara `.env`, Python 3.13 e le dipendenze di `apps/api` e `apps/web` come
